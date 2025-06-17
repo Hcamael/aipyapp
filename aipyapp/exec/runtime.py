@@ -23,7 +23,7 @@ class BaseRuntime(ABC):
         if not packages:
             return True
         
-        cmd = [sys.executable, "-m", "pip", "install"]
+        cmd = ["uv", "pip", "install"]
         if upgrade:
             cmd.append("--upgrade")
         if quiet:
