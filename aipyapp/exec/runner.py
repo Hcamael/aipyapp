@@ -17,6 +17,8 @@ import json
 import time
 import random
 import traceback
+import warnings
+warnings.filterwarnings("ignore")
 
 __retval__ = {}
 __storage__ = {}
