@@ -23,6 +23,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Python use - AIPython", formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument("-c", '--config-dir', type=str, help=config_help_message)
     parser.add_argument('-p', '--python', default=False, action='store_true', help="Python mode")
+    parser.add_argument('-r', '--run', type=str, help="Run aipy python code, need set JSON history File")
     parser.add_argument('-i', '--ipython', default=False, action='store_true', help="IPython mode")
     parser.add_argument('-g', '--gui', default=False, action='store_true', help="GUI mode")
     parser.add_argument('--debug', default=False, action='store_true', help="Debug mode")
@@ -55,6 +56,8 @@ def main():
     elif args.gui:
         ensure_pkg('wxpython')
         from .gui.main import main as aipy_main
+    elif args.run:
+        from .cli.cli_runner import main as aipy_main
     else:
         from .cli.cli_task import main as aipy_main
     aipy_main(args)
