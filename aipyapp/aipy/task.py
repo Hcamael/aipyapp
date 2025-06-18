@@ -80,6 +80,7 @@ class Task(Stoppable):
             self.console.print_exception()
         
     def _auto_save(self):
+        event_bus.broadcast('auto_save', self)
         instruction = self.instruction
         task = {'instruction': instruction}
         task['chats'] = self.client.history.json()

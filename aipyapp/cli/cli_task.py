@@ -17,6 +17,7 @@ from .. import T, set_lang, __version__
 from ..config import LLMConfig
 from ..aipy.wizard import config_llm
 from .completer import DotSyntaxCompleter
+from ..aipy.plugin import event_bus
 
 class CommandType(Enum):
     CMD_DONE = auto()
@@ -27,6 +28,7 @@ class CommandType(Enum):
     CMD_INFO = auto()
     CMD_MCP = auto()
     CMD_ROLE = auto()
+    CMD_BACK = auto()
 
 def parse_command(input_str, llms=set()):
     lower = input_str.lower()
@@ -37,6 +39,8 @@ def parse_command(input_str, llms=set()):
         return CommandType.CMD_INFO, None
     if lower in ("/exit", "exit"):
         return CommandType.CMD_EXIT, None
+    if lower in ("/back", "back"):
+        return CommandType.CMD_BACK, None
     if lower in llms:
         return CommandType.CMD_USE, input_str
     
@@ -91,7 +95,7 @@ class InteractiveConsole():
     def __init__(self, tm, console, settings):
         self.tm = tm
         self.names = tm.client_manager.names
-        word_completer = WordCompleter(['/use', 'use', '/done','done', '/info', 'info', '/mcp'] + list(self.names['enabled']), ignore_case=True)
+        word_completer = WordCompleter(['/use', 'use', '/done','done', '/info', 'info', '/mcp', '/back', 'back'] + list(self.names['enabled']), ignore_case=True)
         dot_completer = DotSyntaxCompleter(tm)
         completer = merge_completers([word_completer, dot_completer])
         self.history = FileHistory(str(CONFIG_DIR / ".history"))
@@ -138,6 +142,8 @@ class InteractiveConsole():
             cmd, arg = parse_command(user_input, self.names['enabled'])
             if cmd == CommandType.CMD_TEXT:
                 self.run_task(task, arg)
+            elif cmd == CommandType.CMD_BACK:
+                event_bus.broadcast("rollback")
             elif cmd == CommandType.CMD_DONE:
                 break
             elif cmd == CommandType.CMD_USE:
@@ -194,6 +200,8 @@ class InteractiveConsole():
                     self.info()
                 elif cmd == CommandType.CMD_EXIT:
                     break
+                elif cmd == CommandType.CMD_BACK:
+                    self.console.print('[yellow]/back only be used at runtime.[/yellow]')
                 elif cmd == CommandType.CMD_MCP:
                     if tm.mcp:
                         ret = tm.mcp.process_command(arg)
