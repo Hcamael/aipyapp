@@ -175,7 +175,7 @@ class ConfigManager:
 
         self.config.update({'_config_dir': config_dir})
 
-        self.trust_token = TrustToken()
+        self.trust_token = TrustToken("https://www.trustoken.cn/api")
         # print(self.config.to_dict())
 
     def get_work_dir(self):

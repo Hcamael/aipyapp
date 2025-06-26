@@ -55,13 +55,14 @@ class Task(Stoppable):
         
         self.code_blocks = CodeBlocks(self.console)
         self.runtime = Runtime(self)
+        self.runtime.done = self.save
         self.runner = Runner(self.runtime)
         
     def use(self, name):
         ret = self.client.use(name)
         self.console.print('[green]Ok[/green]' if ret else '[red]Error[/red]')
         return ret        
-    def save(self):
+    def done(self):
         event_bus.broadcast('auto_save', self)
         instruction = self.instruction
         task = {'instruction': instruction}
@@ -75,20 +76,8 @@ class Task(Stoppable):
             json.dump(task, open(filename, 'w', encoding='utf-8'), ensure_ascii=False, indent=4, default=str)
         except Exception as e:
             self.log.exception('Error saving task')
-        self.log.info('Task auto saved')
+        self.log.info('Task done', jsonname=filename)
 
-    def done(self):
-        curname = f"{self.task_id}.json"
-        jsonname = get_safe_filename(self.instruction, extension='.json')
-        if jsonname and os.path.exists(curname):
-            try:
-                os.rename(curname, jsonname)
-            except Exception as e:
-                self.log.exception('Error renaming task json file')
-
-        self.done_time = time.time()
-        self.log.info('Task done', jsonname=jsonname)
-        
     def process_reply(self, markdown):
         #self.console.print(f"{T('Start parsing message')}...", style='dim white')
         parse_mcp = self.mcp is not None
