@@ -128,9 +128,6 @@ class Runner():
         return result.copy()
         
     def _exec_html_block(self, block):
-        abs_path = block.abs_path
-        if abs_path:
-            webbrowser.open(f'file://{abs_path}')
         result = {'stdout': 'OK'}
         return result, {}
 
