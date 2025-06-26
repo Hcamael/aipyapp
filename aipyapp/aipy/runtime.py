@@ -58,17 +58,5 @@ class Runtime(BaseRuntime):
                 self.set_env(name, value, desc)
         return value or default
     
-    @restore_output
-    def display(self, path=None, url=None):
-        image = {'path': path, 'url': url}
-        event_bus.broadcast('display', image)
-        if not self.gui:
-            image = from_file(path) if path else from_url(url)
-            image.draw()
-
-    @restore_output
-    def input(self, prompt=''):
-        return self.console.input(prompt)    
-    
     def get_code_by_id(self, code_id):
         return self.task.code_blocks.get_code_by_id(code_id)

@@ -23,7 +23,7 @@ class BaseRuntime(ABC):
         if not packages:
             return True
         
-        cmd = ["uv", "pip", "install"]
+        cmd = ["uv", "add"]
         if upgrade:
             cmd.append("--upgrade")
         if quiet:
@@ -50,12 +50,4 @@ class BaseRuntime(ABC):
 
     @abstractmethod
     def get_env(self, name, default=None, *, desc=None):
-        pass
-    
-    @abstractmethod
-    def display(self, path=None, url=None):
-        pass
-
-    @abstractmethod
-    def input(self, prompt=''):
         pass

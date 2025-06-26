@@ -60,26 +60,8 @@ class Task(Stoppable):
     def use(self, name):
         ret = self.client.use(name)
         self.console.print('[green]Ok[/green]' if ret else '[red]Error[/red]')
-        return ret
-
-    def save(self, path):
-       if self.console.record:
-           self.console.save_html(path, clear=False, code_format=CONSOLE_WHITE_HTML)
-
-    def save_html(self, path, task):
-        if 'chats' in task and isinstance(task['chats'], list) and len(task['chats']) > 0:
-            if task['chats'][0]['role'] == 'system':
-                task['chats'].pop(0)
-
-        task_json = json.dumps(task, ensure_ascii=False, default=str)
-        html_content = CONSOLE_CODE_HTML.replace('{{code}}', task_json)
-        try:
-            with open(path, 'w', encoding='utf-8') as f:
-                f.write(html_content)
-        except Exception as e:
-            self.console.print_exception()
-        
-    def _auto_save(self):
+        return ret        
+    def save(self):
         event_bus.broadcast('auto_save', self)
         instruction = self.instruction
         task = {'instruction': instruction}
@@ -93,10 +75,6 @@ class Task(Stoppable):
             json.dump(task, open(filename, 'w', encoding='utf-8'), ensure_ascii=False, indent=4, default=str)
         except Exception as e:
             self.log.exception('Error saving task')
-
-        filename = f"{self.task_id}.html"
-        #self.save_html(filename, task)
-        self.save(filename)
         self.log.info('Task auto saved')
 
     def done(self):
@@ -108,21 +86,8 @@ class Task(Stoppable):
             except Exception as e:
                 self.log.exception('Error renaming task json file')
 
-        curname = f"{self.task_id}.html"
-        htmlname = get_safe_filename(self.instruction, extension='.html')
-        if htmlname and os.path.exists(curname):
-            try:
-                os.rename(curname, htmlname)
-            except Exception as e:
-                self.log.exception('Error renaming task html file')
-
-        self.diagnose.report_code_error(self.runner.history)
         self.done_time = time.time()
-        self.log.info('Task done', jsonname=jsonname, htmlname=htmlname)
-        filename = str(Path(htmlname).resolve())
-        self.console.print(f"[green]{T('Result file saved')}: \"{filename}\"")
-        if self.settings.get('share_result'):
-            self.sync_to_cloud()
+        self.log.info('Task done', jsonname=jsonname)
         
     def process_reply(self, markdown):
         #self.console.print(f"{T('Start parsing message')}...", style='dim white')
@@ -303,42 +268,4 @@ class Task(Stoppable):
                 break
 
         self.print_summary()
-        self._auto_save()
-        self.console.bell()
         self.log.info('Loop done', rounds=rounds)
-
-    def sync_to_cloud(self, verbose=True):
-        """ Sync result
-        """
-        url = T("https://store.aipy.app/api/work")
-
-        trustoken_apikey = self.settings.get('llm', {}).get('Trustoken', {}).get('api_key')
-        if not trustoken_apikey:
-            trustoken_apikey = self.settings.get('llm', {}).get('trustoken', {}).get('api_key')
-        if not trustoken_apikey:
-            return False
-        self.console.print(f"[yellow]{T('Uploading result, please wait...')}")
-        try:
-            response = requests.post(url, json={
-                'apikey': trustoken_apikey,
-                'author': os.getlogin(),
-                'instruction': self.instruction,
-                'llm': self.client.history.json(),
-                'runner': self.runner.history,
-            }, verify=True, timeout=30)
-        except Exception as e:
-            print(e)
-            return False
-
-        status_code = response.status_code
-        if status_code in (200, 201):
-            if verbose:
-                data = response.json()
-                url = data.get('url', '')
-                if url:
-                    self.console.print(f"[green]{T('Article uploaded successfully, {}', url)}[/green]")
-            return True
-
-        if verbose:
-            self.console.print(f"[red]{T('Upload failed (status code: {})', status_code)}:", response.text)
-        return False

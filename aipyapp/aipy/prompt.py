@@ -144,20 +144,6 @@ else:
     print(f"{{env_name}} is available")
 ```
 
-### runtime.display 方法
-- 功能: 显示图片
-- 定义: display(path="path/to/image.jpg", url="https://www.example.com/image.png")
-- 参数: 
-  - path: 图片文件路径
-  - url: 图片 URL
-- 返回值: 无
-
-示例：
-```python
-runtime.display(path="path/to/image.png")
-runtime.display(url="https://www.example.com/image.png")
-```
-
 # 代码执行结果反馈
 Python代码块的执行结果会通过JSON对象反馈给你，对象包括以下属性：
 - `stdout`: 标准输出内容
@@ -171,6 +157,7 @@ Python代码块的执行结果会通过JSON对象反馈给你，对象包括以�
 - 如果某个属性为空，它不会出现在反馈中。
 - 避免在 stdout 和 `state` 中保存相同的内容
 - 不要在 `state` 中保存太多数据，这会导致反馈消息太长
+- 不允许使用 input 函数，你编写的代码无法和用户进行交互。
 
 收到反馈后，结合代码和反馈数据，做出下一步的决策。
 

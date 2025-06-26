@@ -28,31 +28,35 @@ class TaskManager:
         self.gui = gui
         self.log = logger.bind(src='taskmgr')
         self.api_prompt = None
-        self.config_files = settings._loaded_files
-        self.plugin_manager = PluginManager(PLUGINS_DIR)
+        # 加载插件
+        self.plugins_dir = Path(settings.config_dir) / 'plugins'
+        self.plugin_manager = PluginManager(self.plugins_dir)
         self.plugin_manager.load_plugins()
+        # 设置工作目录
         if settings.workdir:
             workdir = Path.cwd() / settings.workdir
             workdir.mkdir(parents=True, exist_ok=True)
-            os.chdir(workdir)
             self._cwd = workdir
         else:
-            self._cwd = Path.cwd()
+            self._cwd = Path.cwd() / "work"
+        # 初始化 mcp
         self.mcp = get_mcp(settings.get('_config_dir'))
+        # 初始化环境变量
         self._init_environ()
+        # 初始化tt_api_key
         self.tt_api_key = get_tt_api_key(settings)
+        # 初始化 api
         self._init_api()
-        self.diagnose = Diagnose.create(settings)
+        # 初始化客户端管理
         self.client_manager = ClientManager(settings)
-        self.tips_manager = TipsManager(TIPS_DIR)
+        # 初始化 tips
+        self.tips_dir = Path(settings.config_dir) / 'tips'
+        self.tips_manager = TipsManager(self.tips_dir)
         self.tips_manager.load_tips()
 
     @property
     def workdir(self):
         return str(self._cwd)
-
-    def get_update(self, force=False):
-        return self.diagnose.check_update(force)
 
     def use(self, llm=None, role=None):
         if llm:
