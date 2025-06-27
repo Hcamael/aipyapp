@@ -55,7 +55,7 @@ class Task(Stoppable):
         
         self.code_blocks = CodeBlocks(self.console)
         self.runtime = Runtime(self)
-        self.runtime.done = self.save
+        self.runtime.done = self.done
         self.runner = Runner(self.runtime)
         
     def use(self, name):

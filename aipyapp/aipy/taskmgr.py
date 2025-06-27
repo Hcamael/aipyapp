@@ -128,7 +128,6 @@ class TaskManager:
 
         task = Task(self)
         task.client = self.client_manager.Client()
-        task.diagnose = self.diagnose
         task.system_prompt = system_prompt
         task.mcp = self.mcp if with_mcp else None
         self.tasks.append(task)
