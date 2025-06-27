@@ -61,7 +61,7 @@ class Runner():
         self.runtime = runtime
         self.history = []
         self.log = logger.bind(src='runner')
-        self._globals = {'runtime': runtime, '__name__': '__main__', 'input': self.runtime.input}
+        self._globals = {'runtime': runtime, '__name__': '__main__'}
         exec(INIT_IMPORTS, self._globals)
 
     def __repr__(self):
