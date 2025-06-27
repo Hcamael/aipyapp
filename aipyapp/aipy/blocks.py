@@ -103,11 +103,11 @@ class CodeBlocks:
             blocks[code_id] = block
             self.log.info("Parsed code block", code_block=block)
 
-            try:
-                block.save()
-                self.log.info("Saved code block", code_block=block)
-            except Exception as e:
-                self.log.error("Failed to save file", code_block=block, reason=e)
+            # try:
+            #     block.save()
+            #     self.log.info("Saved code block", code_block=block)
+            # except Exception as e:
+            #     self.log.error("Failed to save file", code_block=block, reason=e)
 
         self.blocks.update(blocks)
 

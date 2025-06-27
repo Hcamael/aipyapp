@@ -108,7 +108,7 @@ class TipsManager:
                     self.log.info(f"Loaded tips: {tips.name}/{len(tips)}")
                 self.tips[tips.name.lower()] = tips
 
-        self.default_tips = self.tips['aipy']
+        self.default_tips = self.tips['aibot']
         self.current_tips = self.default_tips
 
     def use(self, name: str):
