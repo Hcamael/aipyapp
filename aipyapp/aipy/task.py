@@ -236,6 +236,7 @@ class Task(Stoppable):
 
         rounds = 1
         max_rounds = self.max_rounds
+        instruction = f"在有历史记录的情况下，你需要判断当前任务和之前任务的相关性，如果不相关，你需要清理之前的任务，初始化新任务。\n当前任务：{instruction}"
         response = self.chat(instruction, system_prompt=system_prompt)
         while response and rounds <= max_rounds:
             next_response = self.process_reply(response)
