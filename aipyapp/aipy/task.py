@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import re
 import os
 import json
 import uuid
@@ -28,7 +29,7 @@ from .plugin import event_bus
 from .utils import get_safe_filename
 from .blocks import CodeBlocks, CodeBlock
 from .interface import Stoppable
-from .llm import Client
+from .llm import Client, ChatHistory
 
 CONSOLE_WHITE_HTML = read_text(__respkg__, "console_white.html")
 CONSOLE_CODE_HTML = read_text(__respkg__, "console_code.html")
@@ -57,6 +58,8 @@ class Task(Stoppable):
         self.code_blocks = CodeBlocks(self.console)
         self.runtime = Runtime(self)
         self.runner = Runner(self.runtime)
+
+        self.cmd_exec_pattern = r'<!--\s*Cmd-Exec:\s*{\s*"id"\s*:\s*"([^"]+)"\s*}\s*-->'
         
     def use(self, name):
         ret = self.client.use(name)
@@ -110,6 +113,8 @@ class Task(Stoppable):
             results.append(result)
             json_results.append(json_result)
             self.print_code_result(block, json_result)
+            if "stderr" in result or "errstr" in result:
+                self.code_blocks.blocks.pop(block.id)
             event_bus('result', result)
 
         if len(json_results) == 1:
@@ -218,6 +223,41 @@ class Task(Stoppable):
             content = msg.content
         self.box(f"[yellow]{T('Reply')} ({self.client.name})", content)
         return msg.content
+    
+    def isInCodeBlock(self, cmd_id):
+        for bid in self.code_blocks.blocks:
+            if bid == cmd_id:
+                return True
+        return False
+
+    # 删除错误的历史记录
+    def clean(self):
+        history: 'ChatHistory' = self.client.history
+        if len(history.messages) > 3:
+            index = -3
+            while True:
+                if history.messages[index].role == "assistant":
+                    content = history.messages[index].content
+                    # 使用正则表达式匹配 Cmd-Exec 注释
+                    match = re.search(self.cmd_exec_pattern, content)
+                    if match:
+                        cmd_id = match.group(1)  # 获取匹配到的 id 值
+                        # 如果id不在code_block中，则表明是发生错误的代码，可以从历史记录中删除
+                        if not self.isInCodeBlock(cmd_id):
+                            # 删除assistant错误部分
+                            history.messages.pop(index)
+                            # 删除user错误部分
+                            history.messages.pop(index + 1)
+                            index += 1
+                            continue
+                elif history.messages[index].role == "user":
+                    # 如果用户消息不是最初任务，则到达了用户提问的地方
+                    msg = history.messages[index].content
+                    if not msg.startswith('# 最初任务'):
+                        break
+                elif history.messages[index].role == "system":
+                    break
+                index -= 1
 
     def run(self, instruction) -> str:
         """
@@ -247,5 +287,6 @@ class Task(Stoppable):
             response = next_response
 
         self.print_summary()
+        self.clean()
         self.log.info('Loop done', rounds=rounds)
         return response

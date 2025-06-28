@@ -97,9 +97,9 @@ class Runner():
         if s: result['stderr'] = s if is_json_serializable(s) else '<filtered: cannot json-serialize>'        
 
         vars = gs.get('__retval__')
-        if vars:
-            #self._globals['__retval__'] = vars
-            result['state'] = self.filter_result(vars)
+        # if vars:
+        #     #self._globals['__retval__'] = vars
+        #     result['state'] = self.filter_result(vars)
 
         history = {}
         diff = diff_dicts(env, self.runtime.envs)
