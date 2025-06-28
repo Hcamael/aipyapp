@@ -41,7 +41,7 @@ class ChatHistory:
         return [{"role": msg.role, "content": msg.content} for msg in self.messages]
     
     def clear(self):
-        self.messages = []
+        self.messages = self.messages[:1]
         self._total_tokens = Counter()
 
 class LineReceiver(list):
