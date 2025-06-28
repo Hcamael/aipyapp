@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-from collections import Counter, defaultdict
+from collections import Counter, defaultdict, namedtuple
 
 from loguru import logger
 from rich.live import Live
@@ -210,7 +210,14 @@ class ClientManager(object):
     
     def Client(self):
         return Client(self)
-
+    
+    def to_records(self):
+        LLMRecord = namedtuple('LLMRecord', ['Name', 'Model', 'Max_Tokens', 'Base_URL'])
+        rows = []
+        for name, client in self.clients.items():
+            rows.append(LLMRecord(name, client.model, client.max_tokens, client.base_url))
+        return rows
+    
 class Client:
     def __init__(self, manager: ClientManager):
         self.manager = manager

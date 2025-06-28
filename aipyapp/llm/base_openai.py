@@ -13,6 +13,8 @@ from . import BaseClient, ChatMessage
 # https://platform.openai.com/docs/api-reference/chat/create
 # https://api-docs.deepseek.com/api/create-chat-completion
 class OpenAIBaseClient(BaseClient):
+    PARAMS = {'stream_options': {'include_usage': True}}
+    
     def usable(self):
         return super().usable() and self._api_key
     

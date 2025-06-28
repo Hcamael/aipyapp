@@ -4,7 +4,7 @@
 import os
 import json
 from pathlib import Path
-from collections import deque
+from collections import deque, namedtuple
 
 from loguru import logger
 
@@ -46,21 +46,52 @@ class TaskManager:
         self.client_manager = ClientManager(settings)
         self.tips_manager = TipsManager(TIPS_DIR)
         self.tips_manager.load_tips()
+        self.tips_manager.use(settings.get('role', 'aipy'))
+        self.task = None
 
     @property
     def workdir(self):
         return str(self._cwd)
 
+    def get_tasks(self):
+        return list(self.tasks)
+
+    def list_llms(self):
+        return self.client_manager.to_records()
+    
+    def list_envs(self):
+        EnvRecord = namedtuple('EnvRecord', ['Name', 'Description', 'Value'])
+        rows = []
+        for name, (value, desc) in self.envs.items():    
+            rows.append(EnvRecord(name, desc, value[:32]))
+        return rows
+    
+    def list_tasks(self):
+        rows = []
+        for task in self.tasks:
+            rows.append(task.to_record())
+        return rows
+    
+    def get_task_by_id(self, task_id):
+        for task in self.tasks:
+            if task.task_id == task_id:
+                return task
+        return None
+
     def get_update(self, force=False):
         return self.diagnose.check_update(force)
 
-    def use(self, llm=None, role=None):
+    def use(self, llm=None, role=None, task=None):
         if llm:
             ret = self.client_manager.use(llm)
             self.console.print(f"LLM: {'[green]Ok[/green]' if ret else '[red]Error[/red]'}")
         if role:
             ret = self.tips_manager.use(role)
             self.console.print(f"Role: {'[green]Ok[/green]' if ret else '[red]Error[/red]'}")
+        if task:
+            task = self.get_task_by_id(task)
+            self.console.print(f"Task: {'[green]Ok[/green]' if task else '[red]Error[/red]'}")
+            self.task = task
 
     def _init_environ(self):
         envs = self.settings.get('environ', {})
@@ -116,8 +147,14 @@ class TaskManager:
         return "\n".join(lines)
 
     def new_task(self):
+        if self.task:
+            task = self.task
+            self.task = None
+            self.log.info('Reload task', task_id=task.task_id)
+            return task
+
         with_mcp = self.settings.get('mcp', {}).get('enable', True)
-        system_prompt = get_system_prompt(self.tips_manager.current_tips, self.api_prompt)
+        system_prompt = get_system_prompt(self.tips_manager.current_tips, self.api_prompt, self.settings.get('system_prompt'))
         if self.mcp and with_mcp:
             self.log.info('Update MCP prompt')
             system_prompt = self._update_mcp_prompt(system_prompt)

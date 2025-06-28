@@ -75,7 +75,7 @@ class CodeBlocks:
                 end_meta = json.loads(end_json)
             except json.JSONDecodeError as e:
                 self.console.print_exception(show_locals=True)
-                error = {'JSONDecodeError': {'json_str': start_json, 'reason': str(e)}}
+                error = {'JSONDecodeError': {'Block-Start': start_json, 'Block-End': end_json, 'reason': str(e)}}
                 errors.append(error)
                 continue
 

@@ -8,7 +8,8 @@ import time
 import platform
 import locale
 from pathlib import Path
-from datetime import date
+from datetime import date, datetime
+from collections import namedtuple
 from importlib.resources import read_text
 
 import requests
@@ -52,14 +53,25 @@ class Task(Stoppable):
         self.system_prompt = None
         self.diagnose = None
         self.start_time = None
-        
+        self.done_time = None
         self.code_blocks = CodeBlocks(self.console)
         self.runtime = Runtime(self)
         self.runner = Runner(self.runtime)
         
+    def to_record(self):
+        TaskRecord = namedtuple('TaskRecord', ['task_id', 'start_time', 'done_time', 'instruction'])
+        start_time = datetime.fromtimestamp(self.start_time).strftime('%H:%M:%S') if self.start_time else '-'
+        done_time = datetime.fromtimestamp(self.done_time).strftime('%H:%M:%S') if self.done_time else '-'
+        return TaskRecord(
+            task_id=self.task_id,
+            start_time=start_time,
+            done_time=done_time,
+            instruction=self.instruction[:32] if self.instruction else '-'
+        )
+    
     def use(self, name):
         ret = self.client.use(name)
-        self.console.print('[green]Ok[/green]' if ret else '[red]Error[/red]')
+        #self.console.print('[green]Ok[/green]' if ret else '[red]Error[/red]')
         return ret
 
     def save(self, path):
@@ -319,13 +331,20 @@ class Task(Stoppable):
             return False
         self.console.print(f"[yellow]{T('Uploading result, please wait...')}")
         try:
-            response = requests.post(url, json={
-                'apikey': trustoken_apikey,
-                'author': os.getlogin(),
-                'instruction': self.instruction,
-                'llm': self.client.history.json(),
-                'runner': self.runner.history,
-            }, verify=True, timeout=30)
+            # Serialize twice to remove the non-compliant JSON type.
+            # First, use the json.dumps() `default` to convert the non-compliant JSON type to str.
+            # However, NaN/Infinity will remain.
+            # Second, use the json.loads() 'parse_constant' to convert NaN/Infinity to str.
+            data = json.loads(
+                json.dumps({
+                    'apikey': trustoken_apikey,
+                    'author': os.getlogin(),
+                    'instruction': self.instruction,
+                    'llm': self.client.history.json(),
+                    'runner': self.runner.history,
+                }, ensure_ascii=False, default=str),
+                parse_constant=str)
+            response = requests.post(url, json=data, verify=True,  timeout=30)
         except Exception as e:
             print(e)
             return False

@@ -35,7 +35,7 @@ Third-party packages have been installed,申请的第三方包已经安装
 "is thinking hard, please wait 6-60 seconds",正在绞尽脑汁思考中，请稍等6-60秒
 "No available LLM, please check the configuration file",没有可用的 LLM，请检查配置文件
 "Please use ai('task') to enter the task to be processed by AI (enter ai.use(llm) to switch to the following LLM:",请用 ai('任务') 输入需要 AI 处理的任务 (输入 ai.use(llm) 切换下述 LLM：
-"Please enter the task to be processed by AI (enter /use <following LLM> to switch, enter /info to view system information)",请输入需要 AI 处理的任务 (输入 /use <下述 LLM> 切换，输入 /info 查看系统信息)
+"Please enter an instruction or `/help` for more information",请输入指令或 `/help` 查看更多信息
 Default,默认
 Enabled,已启用
 Disabled,未启用
@@ -307,3 +307,18 @@ Python version,Python 版本
 Python base prefix,Python 基础前缀
 Tools,工具
 Error decoding MCP config file {}: {},解析 MCP 配置文件 {} 时出错: {}
+Current role,当前角色
+Environment operations,环境变量操作
+List environment variables,列出环境变量
+Show available commands or detailed help for a specific command,显示可用命令或详细帮助
+Command,命令
+Available commands,可用命令
+LLM operations,LLM 操作
+List LLM providers,列出 LLM 提供商
+Use a LLM provider,使用 LLM 提供商
+Task operations,任务操作
+List tasks,列出任务
+Use a LLM or a role,使用 LLM 或角色
+LLM name,LLM 名称
+Role name,角色名称
+Switch LLM,切换 LLM

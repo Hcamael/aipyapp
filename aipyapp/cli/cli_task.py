@@ -1,12 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-import sys
-from enum import Enum, auto
-from collections import OrderedDict
-
-from rich import print
 from rich.console import Console
-from rich.table import Table
 from prompt_toolkit import PromptSession
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.styles import Style
@@ -16,104 +10,49 @@ from ..aipy import TaskManager, ConfigManager, CONFIG_DIR
 from .. import T, set_lang, __version__
 from ..config import LLMConfig
 from ..aipy.wizard import config_llm
-from .completer import DotSyntaxCompleter
-from ..aipy.plugin import event_bus
+from .command import CommandManager, TaskCommandManager
 
-class CommandType(Enum):
-    CMD_DONE = auto()
-    CMD_USE = auto()
-    CMD_EXIT = auto()
-    CMD_INVALID = auto()
-    CMD_TEXT = auto()
-    CMD_INFO = auto()
-    CMD_MCP = auto()
-    CMD_ROLE = auto()
-    CMD_BACK = auto()
+STYLE_MAIN = {
+    'completion-menu.completion': 'bg:#000000 #ffffff',
+    'completion-menu.completion.current': 'bg:#444444 #ffffff',
+    'completion-menu.meta': 'bg:#000000 #999999',
+    'completion-menu.meta.current': 'bg:#444444 #aaaaaa',
+    'prompt': 'green',
+}
 
-def parse_command(input_str, llms=set()):
-    lower = input_str.lower()
-
-    if lower in ("/done", "done"):
-        return CommandType.CMD_DONE, None
-    if lower in ("/info", "info"):
-        return CommandType.CMD_INFO, None
-    if lower in ("/exit", "exit"):
-        return CommandType.CMD_EXIT, None
-    if lower in ("/back", "back"):
-        return CommandType.CMD_BACK, None
-    if lower in llms:
-        return CommandType.CMD_USE, input_str
-    
-    if lower.startswith("/use "):
-        arg = input_str[5:].strip()
-        return CommandType.CMD_USE, arg
-
-    if lower.startswith("use "):
-        arg = input_str[4:].strip()
-        return CommandType.CMD_USE, arg
-    
-    if lower.startswith("/mcp"):
-        args = input_str[4:].strip().split(" ")
-        return CommandType.CMD_MCP, args
-               
-    return CommandType.CMD_TEXT, input_str
-
-def show_info(info):
-    info['Python'] = sys.executable
-    info[T('Python version')] = sys.version
-    info[T('Python base prefix')] = sys.base_prefix
-    table = Table(title=T("System information"), show_lines=True)
-
-    table.add_column(T("Parameter"), justify="center", style="bold cyan", no_wrap=True)
-    table.add_column(T("Value"), justify="right", style="bold magenta")
-
-    for key, value in info.items():
-        table.add_row(
-            key,
-            value,
-        )
-    print(table)
-
-def process_mcp_ret(console, arg, ret):
-    if ret.get("status", "success") == "success":
-        #console.print(f"[green]{T('mcp_success')}: {ret.get('message', '')}[/green]")
-        mcp_status = T('Enabled') if ret.get("globally_enabled") else T('Disabled')
-        console.print(f"[green]{T('MCP server status: {}').format(mcp_status)}[/green]")
-        mcp_servers = ret.get("servers", [])
-        if ret.get("globally_enabled", False):
-            for server_name, info in mcp_servers.items():
-                server_status = T('Enabled') if info.get("enabled", False) else T('Disabled')
-                console.print(
-                    "[", server_status, "]",
-                    server_name, info.get("tools_count"), T("Tools")
-                )
-    else:
-        #console.print(f"[red]{T('mcp_error')}: {ret.get('message', '')}[/red]")
-        console.print("操作失败", ret.get("message", ''))
+STYLE_AI = {
+    'completion-menu.completion': 'bg:#002244 #ffffff',         # 深蓝背景，白色文本
+    'completion-menu.completion.current': 'bg:#005577 #ffffff', # 当前选中，亮蓝
+    'completion-menu.meta': 'bg:#002244 #cccccc',               # 补全项的 meta 信息
+    'completion-menu.meta.current': 'bg:#005577 #eeeeee',       # 当前选中的 meta
+    'prompt': 'cyan',
+}
 
 class InteractiveConsole():
     def __init__(self, tm, console, settings):
         self.tm = tm
         self.names = tm.client_manager.names
-        word_completer = WordCompleter(['/use', 'use', '/done','done', '/info', 'info', '/mcp', '/back', 'back'] + list(self.names['enabled']), ignore_case=True)
-        dot_completer = DotSyntaxCompleter(tm)
-        completer = merge_completers([word_completer, dot_completer])
         self.history = FileHistory(str(CONFIG_DIR / ".history"))
-        self.session = PromptSession(history=self.history, completer=completer)
         self.console = console
-        self.style_main = Style.from_dict({"prompt": "green"})
-        self.style_ai = Style.from_dict({"prompt": "cyan"})
-        
-    def input_with_possible_multiline(self, prompt_text, is_ai=False):
-        prompt_style = self.style_ai if is_ai else self.style_main
-
-        first_line = self.session.prompt([("class:prompt", prompt_text)], style=prompt_style)
+        self.settings = settings
+        self.style_main = Style.from_dict(STYLE_MAIN)
+        self.style_task = Style.from_dict(STYLE_AI)
+        self.command_manager_main = CommandManager(tm)
+        self.command_manager_task = TaskCommandManager(tm)
+        self.completer_main = self.command_manager_main
+        self.completer_task = self.command_manager_task
+        self.session = PromptSession(history=self.history, completer=self.completer_main, style=self.style_main)
+        self.session_task = PromptSession(history=self.history, completer=self.completer_task, style=self.style_task)
+    
+    def input_with_possible_multiline(self, prompt_text, task_mode=False):
+        session = self.session_task if task_mode else self.session
+        first_line = session.prompt([("class:prompt", prompt_text)])
         if not first_line.endswith("\\"):
             return first_line
         # Multi-line input
         lines = [first_line.rstrip("\\")]
         while True:
-            next_line = self.session.prompt([("class:prompt", "... ")], style=prompt_style)
+            next_line = session.prompt([("class:prompt", "... ")])
             if next_line.endswith("\\"):
                 lines.append(next_line.rstrip("\\"))
             else:
@@ -134,23 +73,18 @@ class InteractiveConsole():
         self.run_task(task, instruction)
         while True:
             try:
-                user_input = self.input_with_possible_multiline(">>> ", is_ai=True).strip()
+                user_input = self.input_with_possible_multiline(">>> ", task_mode=True).strip()
                 if len(user_input) < 2: continue
             except (EOFError, KeyboardInterrupt):
                 break
 
-            cmd, arg = parse_command(user_input, self.names['enabled'])
-            if cmd == CommandType.CMD_TEXT:
-                self.run_task(task, arg)
-            elif cmd == CommandType.CMD_BACK:
-                event_bus.broadcast("rollback")
-            elif cmd == CommandType.CMD_DONE:
+            if user_input in ('/done', 'done'):
                 break
-            elif cmd == CommandType.CMD_USE:
-                ret = task.use(arg)
-                self.console.print('[green]Ok[/green]' if ret else '[red]Error[/red]')
-            elif cmd == CommandType.CMD_INVALID:
-                self.console.print(f'[red]Error: {arg}[/red]')
+
+            if self.command_manager_task.execute(task, user_input):
+                continue
+
+            self.run_task(task, user_input)
 
         try:
             task.done()
@@ -158,31 +92,9 @@ class InteractiveConsole():
             self.console.print_exception()
         self.console.print(f"[{T('Exit AI mode')}]", style="cyan")
 
-    def info(self):
-        info = OrderedDict()
-        info[T('Current configuration directory')] = str(CONFIG_DIR)
-        info[T('Current working directory')] = str(self.tm.workdir)
-        info[T('Current LLM')] = repr(self.tm.client_manager.current)
-        show_info(info)
-
-    def use(self, args):
-        """ 解析和处理 /use 命令 
-        arg 可能是: @llm.name 或 @role.name 或 @tip.name，可以组合使用
-        """
-        if not args:
-            return
-        params = {}
-        for arg in args.split():
-            if arg.startswith('@'):
-                category, name = arg[1:].split('.', 1)
-                params[category] = name
-        print(params)
-        self.tm.use(**params)
-
     def run(self):
-        self.console.print(f"{T('Please enter the task to be processed by AI (enter /use <following LLM> to switch, enter /info to view system information)')}", style="green")
-        self.console.print(f"[cyan]{T('Default')}: [green]{self.names['default']}，[cyan]{T('Enabled')}: [yellow]{' '.join(self.names['enabled'])}")
-        self.info()
+        self.console.print(f"{T('Please enter an instruction or `/help` for more information')}", style="green")
+        #self.console.print(f"[cyan]{T('Default')}: [green]{self.names['default']}，[cyan]{T('Enabled')}: [yellow]{' '.join(self.names['enabled'])}")
         tm = self.tm
         while True:
             try:
@@ -190,26 +102,12 @@ class InteractiveConsole():
                 if len(user_input) < 2:
                     continue
 
-                cmd, arg = parse_command(user_input, self.names['enabled'])
-                if cmd == CommandType.CMD_TEXT:
+                if user_input.startswith('/'):
+                    self.command_manager_main.execute(user_input)
+                    continue
+                else:
                     task = tm.new_task()
-                    self.start_task_mode(task, arg)
-                elif cmd == CommandType.CMD_USE:
-                    self.use(arg)
-                elif cmd == CommandType.CMD_INFO:
-                    self.info()
-                elif cmd == CommandType.CMD_EXIT:
-                    break
-                elif cmd == CommandType.CMD_BACK:
-                    self.console.print('[yellow]/back only be used at runtime.[/yellow]')
-                elif cmd == CommandType.CMD_MCP:
-                    if tm.mcp:
-                        ret = tm.mcp.process_command(arg)
-                        process_mcp_ret(self.console, arg, ret)
-                    else:
-                        self.console.print("MCP config not found")
-                elif cmd == CommandType.CMD_INVALID:
-                    self.console.print('[red]Error[/red]')
+                    self.start_task_mode(task, user_input)
             except (EOFError, KeyboardInterrupt):
                 break
 
@@ -239,6 +137,7 @@ def main(args):
 
     settings.gui = False
     settings.debug = args.debug
+    settings.config_dir = CONFIG_DIR
     
     try:
         tm = TaskManager(settings, console=console)

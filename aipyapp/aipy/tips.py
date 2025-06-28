@@ -54,7 +54,7 @@ class Tips:
         return self.tips[name]
     
     def __str__(self):
-        lines = ['<tips']
+        lines = ['<tips>']
         for name, tip in self.tips.items():
             lines.append(str(tip))
         lines.append('</tips>')

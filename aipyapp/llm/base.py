@@ -45,6 +45,14 @@ class BaseClient(ABC):
         if temperature != None and temperature >= 0 and temperature <= 1:
             self._params['temperature'] = temperature
 
+    @property
+    def model(self):
+        return self._model
+    
+    @property
+    def base_url(self):
+        return self._base_url
+    
     def __repr__(self):
         return f"{self.__class__.__name__}<{self.name}>: ({self._model}, {self.max_tokens}, {self._base_url})"
     

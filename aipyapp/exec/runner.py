@@ -20,15 +20,16 @@ import traceback
 import warnings
 warnings.filterwarnings("ignore")
 
-__retval__ = {}
+__result__ = {}
 __storage__ = {}
 
-def set_state(key, value, persistent=False):
-    global __retval__, __storage__
-    if persistent:
-        __storage__[key] = value
-    else:
-        __retval__[key] = value
+def set_result(**kwargs):
+    global __result__
+    __result__.update(kwargs)
+
+def set_persistent_state(**kwargs):
+    global __storage__
+    __storage__.update(kwargs)
 
 def get_persistent_state(key):
     global __storage__
@@ -80,8 +81,7 @@ class Runner():
         env = self.runtime.envs.copy()
         session = self._globals['__storage__'].copy()
         gs = self._globals.copy()
-
-        #gs['__retval__'] = {}
+        gs['__result__'].clear()
         try:
             exec(block.code, gs)
         except (SystemExit, Exception) as e:
@@ -96,10 +96,10 @@ class Runner():
         s = captured_stderr.getvalue().strip()
         if s: result['stderr'] = s if is_json_serializable(s) else '<filtered: cannot json-serialize>'        
 
-        vars = gs.get('__retval__')
+        vars = gs.get('__result__')
         if vars:
             #self._globals['__retval__'] = vars
-            result['state'] = self.filter_result(vars)
+            result['result'] = self.filter_result(vars)
 
         history = {}
         diff = diff_dicts(env, self.runtime.envs)
