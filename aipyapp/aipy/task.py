@@ -218,7 +218,7 @@ class Task(Stoppable):
         self.box(f"[yellow]{T('Reply')} ({self.client.name})", content)
         return msg.content
 
-    def run(self, instruction):
+    def run(self, instruction) -> str:
         """
         执行自动处理循环，直到 LLM 不再返回代码消息
         """
@@ -237,11 +237,13 @@ class Task(Stoppable):
         max_rounds = self.max_rounds
         response = self.chat(instruction, system_prompt=system_prompt)
         while response and rounds <= max_rounds:
-            response = self.process_reply(response)
+            next_response = self.process_reply(response)
             rounds += 1
-            if self.is_stopped():
+            if self.is_stopped() or not next_response:
                 self.log.info('Task stopped')
                 break
+            response = next_response
 
         self.print_summary()
         self.log.info('Loop done', rounds=rounds)
+        return response
