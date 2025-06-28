@@ -61,21 +61,9 @@ class Task(Stoppable):
         ret = self.client.use(name)
         self.console.print('[green]Ok[/green]' if ret else '[red]Error[/red]')
         return ret        
-    def done(self):
-        event_bus.broadcast('auto_save', self)
-        instruction = self.instruction
-        task = {'instruction': instruction}
-        task['chats'] = self.client.history.json()
-        #task['envs'] = self.runtime.envs
-        task['runner'] = self.runner.history
-        task['blocks'] = self.code_blocks.to_list()
-
-        filename = f"{self.task_id}.json"
-        try:
-            json.dump(task, open(filename, 'w', encoding='utf-8'), ensure_ascii=False, indent=4, default=str)
-        except Exception as e:
-            self.log.exception('Error saving task')
-        self.log.info('Task done', jsonname=filename)
+    
+    def registerRuntime(self, name, func):
+        setattr(self.runtime, name, func)
 
     def process_reply(self, markdown):
         #self.console.print(f"{T('Start parsing message')}...", style='dim white')

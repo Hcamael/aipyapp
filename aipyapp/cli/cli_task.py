@@ -246,9 +246,9 @@ def main(args):
         console.print_exception()
         return
 
-    update = tm.get_update()
-    if update and update.get('has_update'):
-        console.print(f"[bold red]🔔 号外❗ {T('Update available')}: {update.get('latest_version')}")
+    # update = tm.get_update()
+    # if update and update.get('has_update'):
+    #     console.print(f"[bold red]🔔 号外❗ {T('Update available')}: {update.get('latest_version')}")
    
     if not tm.client_manager:
         console.print(f"[bold red]{T('No available LLM, please check the configuration file')}")

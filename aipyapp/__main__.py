@@ -40,6 +40,11 @@ def ensure_pkg(pkg):
         cp = subprocess.run([sys.executable, "-m", "pip", "install", pkg])
         assert cp.returncode == 0
 
+def aibot():
+    args = parse_args()
+    from .cli.cli_aibot import main as aipy_main
+    aipy_main(args)
+
 def mainw():
     args = parse_args()
     ensure_pkg('wxpython')

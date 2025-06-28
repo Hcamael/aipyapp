@@ -14,27 +14,24 @@ from .plugin import PluginManager
 from .prompt import get_system_prompt
 from .diagnose import Diagnose
 from .llm import ClientManager
-from .config import PLUGINS_DIR, TIPS_DIR, get_mcp, get_tt_api_key, get_tt_aio_api
+from .config import CONFIG_DIR, get_mcp
 from .tips import TipsManager
 
 class TaskManager:
-    MAX_TASKS = 16
-
     def __init__(self, settings, console, gui=False):
         self.settings = settings
         self.console = console
-        self.tasks = deque(maxlen=self.MAX_TASKS)
         self.envs = {}
         self.gui = gui
         self.log = logger.bind(src='taskmgr')
         self.api_prompt = None
         # 加载插件
-        self.plugins_dir = Path(settings.config_dir) / 'plugins'
+        self.plugins_dir = Path(settings.get('config_dir', CONFIG_DIR)) / 'plugins'
         self.plugin_manager = PluginManager(self.plugins_dir)
         self.plugin_manager.load_plugins()
         # 设置工作目录
         if settings.workdir:
-            workdir = Path.cwd() / settings.workdir
+            workdir = Path.cwd() / os.getenv('AIPY_WORKDIR', settings.workdir)
             workdir.mkdir(parents=True, exist_ok=True)
             self._cwd = workdir
         else:
@@ -44,13 +41,13 @@ class TaskManager:
         # 初始化环境变量
         self._init_environ()
         # 初始化tt_api_key
-        self.tt_api_key = get_tt_api_key(settings)
+        # self.tt_api_key = get_tt_api_key(settings)
         # 初始化 api
         self._init_api()
         # 初始化客户端管理
         self.client_manager = ClientManager(settings)
         # 初始化 tips
-        self.tips_dir = Path(settings.config_dir) / 'tips'
+        self.tips_dir = Path(settings.get('config_dir', CONFIG_DIR)) / 'tips'
         self.tips_manager = TipsManager(self.tips_dir)
         self.tips_manager.load_tips()
 
@@ -75,9 +72,9 @@ class TaskManager:
         api = self.settings.get('api', {})
 
         # update tt aio api, for map and search
-        if self.tt_api_key:
-            tt_aio_api = get_tt_aio_api(self.tt_api_key)
-            api.update(tt_aio_api)
+        # if self.tt_api_key:
+        #     tt_aio_api = get_tt_aio_api(self.tt_api_key)
+        #     api.update(tt_aio_api)
 
         lines = []
         for api_name, api_conf in api.items():
@@ -130,6 +127,5 @@ class TaskManager:
         task.client = self.client_manager.Client()
         task.system_prompt = system_prompt
         task.mcp = self.mcp if with_mcp else None
-        self.tasks.append(task)
         self.log.info('New task created', task_id=task.task_id)
         return task

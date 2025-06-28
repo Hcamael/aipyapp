@@ -26,6 +26,7 @@ dependencies = [
 
 [project.scripts]
 aipy = "aipyapp.__main__:main"
+aipybot = "aipyapp.__main__:main"
 
 [project.gui-scripts]
 aipyw = "aipyapp.__main__:mainw"
