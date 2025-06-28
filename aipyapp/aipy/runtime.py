@@ -1,6 +1,7 @@
 #! /usr/bin/env python3
 # -*- coding: utf-8 -*-
 import sys
+import subprocess
 from functools import wraps
 
 from term_image.image import from_file, from_url
@@ -50,3 +51,22 @@ class Runtime(BaseRuntime):
     
     def get_code_by_id(self, code_id):
         return self.task.code_blocks.get_code_by_id(code_id)
+    
+    def upload_file(self, file_path: str):
+        '''让 aipy 把结果都输出到 html 中，然后上传到服务中。
+        '''
+        try:
+            subprocess.run(
+                ["scp", "-P2233", f"{file_path}", "xxx@xx.xx:/xxx/{file_path}"],
+                capture_output=False,
+                text=True,
+                check=True
+            )
+            self.log.info(f"文件上传成功: {file_path}")
+            return "上传成功"
+        except subprocess.CalledProcessError as e:
+            self.log.error(f"文件上传失败: {e.stderr}")
+            return f"上传失败: {e.stderr}"
+        except Exception as e:
+            self.log.exception(f"文件上传异常: {e}")
+            return f"上传异常: {str(e)}"

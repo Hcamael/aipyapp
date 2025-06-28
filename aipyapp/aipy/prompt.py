@@ -144,6 +144,12 @@ else:
     print(f"{{env_name}} is available")
 ```
 
+### runtime.upload_file 方法
+- 功能：由于用户无法接触服务器，所以生成的 HTML 文件需要上传到服务器上，该方法用来上传指定文件到服务器。
+- 定义：upload_file(file_path: str)
+- 参数：file_path为需要上传的文件路径。
+- 返回值：上传成功后，返回HTML 文件的URL地址。
+
 # 代码执行结果反馈
 Python代码块的执行结果会通过JSON对象反馈给你，对象包括以下属性：
 - `stdout`: 标准输出内容
