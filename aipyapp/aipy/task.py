@@ -28,6 +28,7 @@ from .plugin import event_bus
 from .utils import get_safe_filename
 from .blocks import CodeBlocks, CodeBlock
 from .interface import Stoppable
+from .llm import Client
 
 CONSOLE_WHITE_HTML = read_text(__respkg__, "console_white.html")
 CONSOLE_CODE_HTML = read_text(__respkg__, "console_code.html")
@@ -46,7 +47,7 @@ class Task(Stoppable):
         self.console = Console(file=manager.console.file, record=True)
         self.max_rounds = self.settings.get('max_rounds', self.MAX_ROUNDS)
 
-        self.client = None
+        self.client: 'Client | None' = None
         self.runner = None
         self.instruction = None
         self.system_prompt = None

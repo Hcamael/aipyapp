@@ -39,6 +39,10 @@ class ChatHistory:
 
     def get_messages(self):
         return [{"role": msg.role, "content": msg.content} for msg in self.messages]
+    
+    def clear(self):
+        self.messages = []
+        self._total_tokens = Counter()
 
 class LineReceiver(list):
     def __init__(self):
@@ -215,7 +219,7 @@ class Client:
     def __init__(self, manager: ClientManager):
         self.manager = manager
         self.current = manager.current
-        self.history = ChatHistory()
+        self.history: 'ChatHistory' = ChatHistory()
         self.log = logger.bind(src='client', name=self.current.name)
 
     @property
