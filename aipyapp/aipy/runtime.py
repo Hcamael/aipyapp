@@ -70,3 +70,6 @@ class Runtime(BaseRuntime):
         except Exception as e:
             self.log.exception(f"文件上传异常: {e}")
             return f"上传异常: {str(e)}"
+        
+    def done(self):
+        return "任务完成"

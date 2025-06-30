@@ -57,7 +57,7 @@ class Task(Stoppable):
         
         self.code_blocks = CodeBlocks(self.console)
         self.runtime = Runtime(self)
-        self.runner = Runner(self.runtime)
+        self.runner: 'Runner' = Runner(self.runtime)
 
         self.cmd_exec_pattern = r'<!--\s*Cmd-Exec:\s*{\s*"id"\s*:\s*"([^"]+)"\s*}\s*-->'
         
