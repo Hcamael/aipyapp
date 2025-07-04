@@ -1,324 +1,352 @@
-en,zh
-Start processing instruction,开始处理指令
-Start executing code block,开始执行代码块
-Execution result,执行结果
-"Initializing MCP server, this may take a while if it's the first load, please wait patiently...",正在初始化MCP服务器，如果是第一次加载，可能会耗时较长，请耐心等待...
-Start calling MCP tool,开始调用MCP工具
-MCP tool call result,MCP工具调用结果
-Found {1} tools from {0} enabled MCP servers,从{0}个启用的MCP服务器找到{1}个工具
-"MCP Server: {}, tools: {}",MCP服务器：{}，工具：{}
-MCP server status: {},MCP服务器状态: {}
-Start parsing message,开始解析消息
-Message parse result,消息解析结果
-Start sending feedback,开始反馈结果
-End processing instruction,结束处理指令
-No context information found,未找到上下文信息
-"Uploading result, please wait...",正在上传结果，请稍候...
-"Article uploaded successfully, {}",上传成功，私密保存地址：{}
-Upload failed (status code: {}),上传失败 (状态码: {})
-Severe warning: This will reinitialize❗❗❗,严重警告：这将重新初始化❗❗❗
-"If you are sure to continue, enter y",如果你确定要继续，请输入 y
-Reply,响应
-Environment variable name and meaning,环境变量名称和意义
-Description,描述
-Unsupported file format,不支持的文件格式
-Request to install third-party packages,申请安装第三方包
-"If you agree, please enter",如果同意，请输入
-"Request to obtain environment variable {}, purpose",申请获取环境变量 {}，用途
-"Environment variable {} exists, returned for code use",环境变量 {} 存在，返回给代码使用
-"Environment variable {} not found, please enter",未找到环境变量 {}，请输入
-Call failed,调用失败
-Think,思考
-Current environment does not support publishing,当前环境不支持发布
-Auto confirm,自动确认
-Third-party packages have been installed,申请的第三方包已经安装
-"is thinking hard, please wait 6-60 seconds",正在绞尽脑汁思考中，请稍等6-60秒
-"No available LLM, please check the configuration file",没有可用的 LLM，请检查配置文件
-"Please use ai('task') to enter the task to be processed by AI (enter ai.use(llm) to switch to the following LLM:",请用 ai('任务') 输入需要 AI 处理的任务 (输入 ai.use(llm) 切换下述 LLM：
-"Please enter an instruction or `/help` for more information",请输入指令或 `/help` 查看更多信息
-Default,默认
-Enabled,已启用
-Disabled,未启用
-"Enter AI mode, start processing tasks, enter Ctrl+d or /done to end the task",进入 AI 模式，开始处理任务，输入 Ctrl+d 或 /done 结束任务
-Exit AI mode,退出 AI 模式
-[AI mode] Unknown command,[AI 模式] 未知命令
-Task Summary,任务总结
-Round,轮次
-Time(s),时间(秒)
-In Tokens,输入令牌数
-Out Tokens,输出令牌数
-Total Tokens,总令牌数
-Sending task to {},正在向 {} 下达任务
-Error loading configuration: {},加载配置时出错: {}
-Please check the configuration file path and format.,请检查配置文件路径和格式。
-Configuration not loaded.,配置尚未加载。
-Missing 'llm' configuration.,缺少 'llm' 配置。
-Not usable,不可用
-Permission denied to create directory: {},无权限创建目录: {}
-Error creating configuration directory: {},创建配置目录时出错: {}
-Successfully migrated old version trustoken configuration to {},成功的将旧版本trustoken配置迁移到 {}
-Successfully migrated old version user configuration to {},成功的将旧版本用户配置迁移到 {}
+en,zh,jp
+"Start processing instruction","开始处理指令","処理命令の開始"
+"Start executing code block","开始执行代码块","コードブロックの実行開始"
+"Execution result","执行结果","実行結果"
+"Initializing MCP server, this may take a while if it's the first load, please wait patiently...","正在初始化MCP服务器，如果是第一次加载，可能会耗时较长，请耐心等待...","MCPサーバーの初期化中、初回ロードの場合は時間がかかる場合があります。しばらくお待ちください..."
+"Start calling MCP tool","开始调用MCP工具","MCPツールの呼び出し開始"
+"MCP tool call result","MCP工具调用结果","MCPツール呼び出し結果"
+"Found {1} tools from {0} enabled MCP servers","从{0}个启用的MCP服务器找到{1}个工具","{0}個の有効なMCPサーバーから{1}個のツールが見つかりました"
+"MCP Server: {}, tools: {}","MCP服务器：{}，工具：{}","MCPサーバー：{}、ツール：{}"
+"MCP server status: {}","MCP服务器状态: {}","MCPサーバー状態：{}"
+"Start parsing message","开始解析消息","メッセージの解析開始"
+"Message parse result","消息解析结果","メッセージ解析結果"
+"Start sending feedback","开始反馈结果","フィードバックの送信開始"
+"End processing instruction","结束处理指令","処理命令の終了"
+"No context information found","未找到上下文信息","コンテキスト情報が見つかりませんでした"
+"Uploading result, please wait...","正在上传结果，请稍候...","結果をアップロード中、しばらくお待ちください..."
+"Article uploaded successfully, {}","上传成功，私密保存地址：{}","記事のアップロードに成功しました、{}"
+"Upload failed (status code: {})","上传失败 (状态码: {})","アップロードに失敗しました (ステータスコード: {})"
+"Severe warning: This will reinitialize❗❗❗","严重警告：这将重新初始化❗❗❗","重大警告：これにより再初期化されます❗❗❗"
+"If you are sure to continue, enter y","如果你确定要继续，请输入 y","続行する場合は y を入力してください"
+"Reply","响应","返信"
+"Environment variable name and meaning","环境变量名称和意义","環境変数の名前と意味"
+"Description","描述","説明"
+"Unsupported file format","不支持的文件格式","サポートされていないファイル形式"
+"Request to install third-party packages","申请安装第三方包","サードパーティパッケージのインストール要求"
+"If you agree, please enter","如果同意，请输入","同意する場合は入力してください"
+"Request to obtain environment variable {}, purpose","申请获取环境变量 {}，用途","環境変数 {} の取得要求、目的"
+"Environment variable {} exists, returned for code use","环境变量 {} 存在，返回给代码使用","環境変数 {} が存在し、コードで使用するために返されました"
+"Environment variable {} not found, please enter","未找到环境变量 {}，请输入","環境変数 {} が見つかりませんでした、入力してください"
+"Call failed","调用失败","呼び出しに失敗しました"
+"Think","思考","考える"
+"Current environment does not support publishing","当前环境不支持发布","現在の環境では公開がサポートされていません"
+"Auto confirm","自动确认","自動確認"
+"Third-party packages have been installed","申请的第三方包已经安装","サードパーティパッケージがインストールされました"
+"is thinking hard, please wait 6-60 seconds","正在绞尽脑汁思考中，请稍等6-60秒","一生懸命考えています、6〜60秒お待ちください"
+"No available LLM, please check the configuration file","没有可用的 LLM，请检查配置文件","利用可能なLLMがありません、設定ファイルを確認してください"
+"Please use ai('task') to enter the task to be processed by AI (enter ai.use(llm) to switch to the following LLM:","请用 ai('任务') 输入需要 AI 处理的任务 (输入 ai.use(llm) 切换下述 LLM：","AIに処理させるタスクをai('task')で入力してください (以下のLLMに切り替えるにはai.use(llm)を入力してください："
+"Please enter an instruction or `/help` for more information","请输入指令或 `/help` 查看更多信息","命令を入力するか、詳細については `/help` を入力してください"
+"Default","默认","デフォルト"
+"Enabled","已启用","有効"
+"Disabled","未启用","無効"
+"Enter AI mode, start processing tasks, enter Ctrl+d or /done to end the task","进入 AI 模式，开始处理任务，输入 Ctrl+d 或 /done 结束任务","AIモードに入り、タスクの処理を開始します。タスクを終了するにはCtrl+dまたは/doneを入力してください"
+"Exit AI mode","退出 AI 模式","AIモードを終了"
+"[AI mode] Unknown command","[AI 模式] 未知命令","[AIモード] 不明なコマンド"
+"Task Summary","任务总结","タスクの概要"
+"Round","轮次","ラウンド"
+"Time(s)","时间(秒)","時間(秒)"
+"In Tokens","输入令牌数","入力トークン数"
+"Out Tokens","输出令牌数","出力トークン数"
+"Total Tokens","总令牌数","総トークン数"
+"Sending task to {}","正在向 {} 下达任务","{} にタスクを送信中"
+"Error loading configuration: {}","加载配置时出错: {}","設定の読み込みエラー: {}"
+"Please check the configuration file path and format.","请检查配置文件路径和格式。","設定ファイルのパスと形式を確認してください。"
+"Configuration not loaded.","配置尚未加载。","設定が読み込まれていません。"
+"Missing 'llm' configuration.","缺少 'llm' 配置。","'llm' 設定が不足しています。"
+"Not usable","不可用","使用不可"
+"Permission denied to create directory: {}","无权限创建目录: {}","ディレクトリの作成権限が拒否されました: {}"
+"Error creating configuration directory: {}","创建配置目录时出错: {}","設定ディレクトリの作成エラー: {}"
+"Successfully migrated old version trustoken configuration to {}","成功的将旧版本trustoken配置迁移到 {}","旧バージョンのtrustoken設定を {} に正常に移行しました"
+"Successfully migrated old version user configuration to {}","成功的将旧版本用户配置迁移到 {}","旧バージョンのユーザー設定を {} に正常に移行しました"
 "Binding request sent successfully.
+
 Request ID: {}
 
 >>> Please open this URL in your browser on an authenticated device to approve:
+
 >>> {}
 
 (This link expires in {} seconds)","绑定请求发送成功。
+
 请求ID: {}
 
 >>> 请在已认证设备的浏览器中打开以下链接以批准:
+
 >>> {}
 
-(该链接将在{}秒后过期)"
-Or scan the QR code below:,或者扫描下方二维码：
-"We recommend you scan the QR code to bind the AiPy brain, you can also configure a third-party large model brain, details refer to: https://d.aipy.app/d/77",推荐您手机扫码绑定AiPy大脑，您也可以配置第三方大模型大脑，详情参考：https://d.aipy.app/d/77
-"(Could not display QR code: {})
-","(无法显示二维码: {})
-"
-Error connecting to coordinator or during request: {},连接到协调服务器或请求时出错: {}
-An unexpected error occurred during request: {},请求过程中发生意外错误: {}
-"Browser has opened the Trustoken website, please register or login to authorize",浏览器已打开Trustoken网站，请注册或登录授权
-Current status: {}...,当前状态: {}...
-"
-Binding request expired.","
-绑定请求已过期。"
-Received unknown status: {},收到未知状态: {}
-Error connecting to coordinator during polling: {},轮询协调服务器时出错: {}
-An unexpected error occurred during polling: {},轮询过程中发生意外错误: {}
-"
-Polling cancelled by user.","
-用户取消了轮询。"
-"
-Polling timed out.","
-轮询超时。"
-The current environment lacks the required configuration file. Starting the configuration initialization process to bind with the Trustoken account...,当前环境缺少必需的配置文件，开始进行配置初始化流程，与trustoken账号绑定即可自动获取配置...
-"
-Binding process completed successfully.","
-绑定流程已成功完成。"
-"
-Binding process failed or was not completed.","
-绑定流程失败或未完成。"
-"
-Failed to initiate binding request.","
-绑定请求发起失败。"
-Cancel,取消
-TrustToken Authentication,TrustToken 认证
-Error,错误
-Time remaining: {} seconds,剩余时间：{} 秒
-Approved,已批准
-Expired,已过期
-Pending,待处理
+(该链接将在{}秒后过期)","バインディング要求が正常に送信されました。
+
+リクエストID: {}
+
+>>> 認証済みデバイスで以下のURLをブラウザで開いて承認してください:
+
+>>> {}
+
+(このリンクは{}秒後に期限切れになります)"
+"Or scan the QR code below:","或者扫描下方二维码：","または以下のQRコードをスキャンしてください："
+"We recommend you scan the QR code to bind the AiPy brain, you can also configure a third-party large model brain, details refer to: https://d.aipy.app/d/77","推荐您手机扫码绑定AiPy大脑，您也可以配置第三方大模型大脑，详情参考：https://d.aipy.app/d/77","AiPyブレインをバインドするためにQRコードをスキャンすることをお勧めします。サードパーティの大規模モデルブレインも設定できます。詳細は以下を参照してください：https://d.aipy.app/d/77"
+"(Could not display QR code: {})","(无法显示二维码: {})","(QRコードを表示できません: {})"
+"Error connecting to coordinator or during request: {}","连接到协调服务器或请求时出错: {}","コーディネーターへの接続エラーまたはリクエスト中のエラー: {}"
+"An unexpected error occurred during request: {}","请求过程中发生意外错误: {}","リクエスト中に予期しないエラーが発生しました: {}"
+"Browser has opened the Trustoken website, please register or login to authorize","浏览器已打开Trustoken网站，请注册或登录授权","ブラウザでTrustokenウェブサイトが開きました。登録またはログインして承認してください"
+"Current status: {}...","当前状态: {}...","現在の状態: {}..."
+"Binding request expired.","绑定请求已过期。","バインディング要求が期限切れになりました。"
+"Received unknown status: {}","收到未知状态: {}","不明な状態を受信しました: {}"
+"Error connecting to coordinator during polling: {}","轮询协调服务器时出错: {}","ポーリング中にコーディネーターへの接続エラー: {}"
+"An unexpected error occurred during polling: {}","轮询过程中发生意外错误: {}","ポーリング中に予期しないエラーが発生しました: {}"
+"Polling cancelled by user.","用户取消了轮询。","ユーザーがポーリングをキャンセルしました。"
+"Polling timed out.","轮询超时。","ポーリングがタイムアウトしました。"
+"The current environment lacks the required configuration file. Starting the configuration initialization process to bind with the Trustoken account...","当前环境缺少必需的配置文件，开始进行配置初始化流程，与trustoken账号绑定即可自动获取配置...","現在の環境に必要な設定ファイルがありません。Trustokenアカウントとバインドして設定の初期化プロセスを開始します..."
+"Binding process completed successfully.","绑定流程已成功完成。","バインディングプロセスが正常に完了しました。"
+"Binding process failed or was not completed.","绑定流程失败或未完成。","バインディングプロセスが失敗したか、完了していません。"
+"Failed to initiate binding request.","绑定请求发起失败。","バインディング要求の開始に失敗しました。"
+"Cancel","取消","キャンセル"
+"TrustToken Authentication","TrustToken 认证","TrustToken認証"
+"Error","错误","エラー"
+"Time remaining: {} seconds","剩余时间：{} 秒","残り時間：{} 秒"
+"Approved","已批准","承認済み"
+"Expired","已过期","期限切れ"
+"Pending","待处理","保留中"
 "Found old configuration files: {}
+
 Attempting to migrate configuration from these files...
+
 After migration, these files will be backed up to {}, please check them.","发现旧的配置文件: {}
+
 尝试从这些文件迁移配置...
-迁移之后，这些文件会被备份到 {}，请注意查看。"
-Result file saved,结果文件已保存
-Current configuration file directory: {} Working directory: {},当前配置文件目录：{} 工作目录: {}
-System information,系统信息
-Save chat history as HTML,保存聊天记录为 HTML
-Clear chat,清空聊天
-Exit,退出
-Start new task,开始新任务
-Website,官网
-Forum,论坛
-WeChat Group,微信群
-About,关于
-Help,帮助
-File,文件
-Edit,编辑
-Task,任务
-Stop task,停止任务
-Share task,分享任务
-Current task has ended,当前任务已结束
-"Operation in progress, please wait...",操作进行中，请稍候...
-"Operation completed. If you want to start the next task, please click the `End` button","操作完成。如果开始下一个任务，请点击 `结束` 按钮"
-Press Ctrl/Cmd+Enter to send message,按 Ctrl/Cmd+Enter 发送消息
-Save chat history as HTML file,保存聊天记录为 HTML 文件
-Exit program,退出程序
-Clear all messages,清除所有消息
-Start a new task,开始一个新任务
-Official website,官方网站
-Official forum,官方论坛
-Official WeChat group,官方微信群
-About AIPY,关于爱派
-Configuration,配置
-Configure program parameters,配置程序参数
-Work Directory,工作目录
-Browse...,浏览...
-Select work directory,选择工作目录
-Max Tokens,请输入最大 Token 数（默认：8192）
-Timeout (seconds),超时时间(秒)
-Max Rounds,最大执行轮数
-OK,确定
-Cancel,取消
-AIPY is an intelligent assistant that can help you complete various tasks.,爱派是一个智能助手，可以帮助您完成各种任务。
-Current configuration directory,当前配置目录
-Current working directory,当前工作目录
-Version,版本
-AIPY Team,爱派团队
-You can create a new directory in the file dialog,您可以在文件对话框中选择或创建新目录
-Settings,设置
-https://sapi.trustoken.ai/v1,https://api.trustoken.cn/v1
-https://www.trustoken.ai/api,https://www.trustoken.cn/api
-https://store.aipy.app/api/work,https://store.aipyaipy.com/api/work
-Work directory does not exist,工作目录不存在
-Warning,警告
-LLM {} is not available,LLM {} 不可用
-End,结束
-Send,发送
-🐙 AIPY - Your AI Assistant 🐂 🐎,🐙爱派，您的干活牛🐂马🐎，啥都能干！
-API Market,API 市场
-LLM Configuration,LLM 配置
-Provider Configuration,提供商配置
-Me,我
-Turing,图灵
-AIPy,爱派
-Current task,当前任务
-End processing instruction,结束处理指令
-Run result,运行结果
-Update available,发现新版本
-Failed to save file,无法保存文件
-"Operation completed. If you start a new task, please click the `End` button","操作完成。如果开始下一个任务，请点击 `结束` 按钮"
+
+迁移之后，这些文件会被备份到 {}，请注意查看。","古い設定ファイルが見つかりました: {}
+
+これらのファイルから設定を移行しようとしています...
+
+移行後、これらのファイルは {} にバックアップされます。確認してください。"
+"Result file saved","结果文件已保存","結果ファイルが保存されました"
+"Current configuration file directory: {} Working directory: {}","当前配置文件目录：{} 工作目录: {}","現在の設定ファイルディレクトリ：{} 作業ディレクトリ: {}"
+"System information","系统信息","システム情報"
+"Save chat history as HTML","保存聊天记录为 HTML","チャット履歴をHTMLとして保存"
+"Clear chat","清空聊天","チャットをクリア"
+"Exit","退出","終了"
+"Start new task","开始新任务","新しいタスクを開始"
+"Website","官网","ウェブサイト"
+"Forum","论坛","フォーラム"
+"WeChat Group","微信群","WeChatグループ"
+"About","关于","約"
+"Help","帮助","ヘルプ"
+"File","文件","ファイル"
+"Edit","编辑","編集"
+"Task","任务","タスク"
+"Stop task","停止任务","タスクを停止"
+"Share task","分享任务","タスクを共有"
+"Current task has ended","当前任务已结束","現在のタスクが終了しました"
+"Operation in progress, please wait...","操作进行中，请稍候...","操作中、しばらくお待ちください..."
+"Operation completed. If you want to start the next task, please click the `End` button","操作完成。如果开始下一个任务，请点击 `结束` 按钮","操作が完了しました。次のタスクを開始する場合は「終了」ボタンをクリックしてください"
+"Press Ctrl/Cmd+Enter to send message","按 Ctrl/Cmd+Enter 发送消息","Ctrl/Cmd+Enterを押してメッセージを送信"
+"Save chat history as HTML file","保存聊天记录为 HTML 文件","チャット履歴をHTMLファイルとして保存"
+"Exit program","退出程序","プログラムを終了"
+"Clear all messages","清除所有消息","すべてのメッセージをクリア"
+"Start a new task","开始一个新任务","新しいタスクを開始"
+"Official website","官方网站","公式ウェブサイト"
+"Official forum","官方论坛","公式フォーラム"
+"Official WeChat group","官方微信群","公式WeChatグループ"
+"About AIPY","关于爱派","AIPYについて"
+"Configuration","配置","設定"
+"Configure program parameters","配置程序参数","プログラムパラメータの設定"
+"Work Directory","工作目录","作業ディレクトリ"
+"Browse...","浏览...","参照..."
+"Select work directory","选择工作目录","作業ディレクトリを選択"
+"Max Tokens","请输入最大 Token 数（默认：8192）","最大トークン数を入力してください（デフォルト：8192）"
+"Timeout (seconds)","超时时间(秒)","タイムアウト（秒）"
+"Max Rounds","最大执行轮数","最大実行ラウンド数"
+"OK","确定","OK"
+"AIPY is an intelligent assistant that can help you complete various tasks.","爱派是一个智能助手，可以帮助您完成各种任务。","AIPYは、さまざまなタスクを完了するのに役立つインテリジェントアシスタントです。"
+"Current configuration directory","当前配置目录","現在の設定ディレクトリ"
+"Current working directory","当前工作目录","現在の作業ディレクトリ"
+"Version","版本","バージョン"
+"AIPY Team","爱派团队","AIPYチーム"
+"You can create a new directory in the file dialog","您可以在文件对话框中选择或创建新目录","ファイルダイアログで新しいディレクトリを選択または作成できます"
+"Settings","设置","設定"
+"https://sapi.trustoken.ai/v1","https://api.trustoken.cn/v1","https://sapi.trustoken.ai/v1"
+"https://www.trustoken.ai/api","https://www.trustoken.cn/api","https://www.trustoken.ai/api"
+"https://store.aipy.app/api/work","https://store.aipyaipy.com/api/work","https://store.aipy.app/api/work"
+"Work directory does not exist","工作目录不存在","作業ディレクトリが存在しません"
+"Warning","警告","警告"
+"LLM {} is not available","LLM {} 不可用","LLM {} は利用できません"
+"End","结束","終了"
+"Send","发送","送信"
+"🐙 AIPY - Your AI Assistant 🐂 🐎","🐙爱派，您的干活牛🐂马🐎，啥都能干！","🐙 AIPY - あなたのAIアシスタント 🐂 🐎"
+"API Market","API 市场","APIマーケット"
+"LLM Configuration","LLM 配置","LLM設定"
+"Provider Configuration","提供商配置","プロバイダー設定"
+"Me","我","私"
+"Turing","图灵","チューリング"
+"AIPy","爱派","AIPY"
+"Current task","当前任务","現在のタスク"
+"End processing instruction","结束处理指令","処理命令の終了"
+"Run result","运行结果","実行結果"
+"Update available","发现新版本","更新が利用可能です"
+"Failed to save file","无法保存文件","ファイルの保存に失敗しました"
+"Operation completed. If you start a new task, please click the `End` button","操作完成。如果开始下一个任务，请点击 `结束` 按钮","操作が完了しました。新しいタスクを開始する場合は「終了」ボタンをクリックしてください"
 "Hello! I am **AIPy**, your intelligent task assistant!
+
 Please allow me to introduce the other members of the team:
+
 - Turing: The strongest artificial intelligence, complex task analysis and planning
+
 - BB-8: The strongest robot, responsible for executing tasks
 
-Note: Click the ""**Help**"" link in the menu bar to contact the **AIPy** official and join the group chat.","哈啰！我是**爱派**，您的智能任务小管家!
+Note: Click the "**Help**" link in the menu bar to contact the **AIPy** official and join the group chat.","哈啰！我是**爱派**，您的智能任务小管家!
+
 请允许我隆重介绍团队其它成员：
+
 - 图灵：宇宙最强人工智能，复杂任务分析和规划
+
 - BB-8: 宇宙最强机器人，负责执行任务
 
-温馨提示：打开菜单栏""**帮助**""链接，可以联系**爱派**官方和加入群聊。"
-Select LLM Provider,选择 LLM 提供商
-Provider,提供商
-Trustoken,Trustoken
-Other,其它
-Trustoken is an intelligent API Key management service,Trustoken 是一个智能的 API Key 管理服务
-Auto get and manage API Key,自动获取和管理 API Key
-Support multiple LLM providers,支持多个 LLM 提供商
-Auto select optimal model,自动选择最优模型
-"Recommended for beginners, easy to configure and feature-rich",建议小白用户选择，配置方便、功能丰富
-Select other providers requires manual configuration,选择其它提供商需要手动配置
-Need to apply for API Key yourself,需要自行申请 API Key
-Manually input API Key,手动输入 API Key
-Manually select model,手动选择模型
-Trustoken Configuration,Trustoken 配置
-API Key,API Key
-Auto open browser to get API Key,自动打开浏览器获取 API Key
-Current status,当前状态
-Binding expired,绑定已过期
-Unknown status,未知状态
-Waiting timeout,等待超时
-API Key obtained successfully!,API Key 获取成功！
-"API Key acquisition failed, please try again",API Key 获取失败，请重试
-Requesting binding,正在申请绑定
-Waiting for user confirmation,等待用户确认
-Remaining time,剩余时间
-seconds,秒
-You can also click this link to open browser to get API Key,你也可以点击此链接打开浏览器获取API Key
-Please get API Key first,请先获取API Key
-Available Models,请选择模型
-Temperature (%),请输入 Temperature（0-1，默认：0.7）
-"Please select provider and input API Key, click Next to verify",请选择提供商并输入API Key，点击下一步验证
-Please select model to use and configure parameters,请选择要使用的模型并配置参数
-Model list acquisition failed,无法获取模型列表，请检查 API Key 是否正确
-Hint,提示
-API Name,API名称
-Delete,删除
-Confirm Delete,确认删除
-Are you sure to delete API,确定要删除API
-Add API,新增API
-Edit API,编辑API
-API Key Settings,API密钥设置
-Add Environment Variable,添加环境变量
-API Description,API描述
-API Description Hint,"提示: 描述支持多行文本，将以""""""...""""""格式保存"
-Save,保存
-Variable Name,变量名
-Value,值
-Remove,移除
-Add,添加
-Refresh,刷新
-No API configured,暂无API配置
-API Details,API详情
-Close,关闭
-API configuration saved,API配置已保存
-Failed to save API configuration,保存API配置失败
-API configuration loaded,API配置已加载
-Failed to load API configuration,加载API配置失败
-API deleted,API已删除
-Failed to delete API,删除API失败
-API added,API已添加
-Failed to add API,添加API失败
-API updated,API已更新
-Failed to update API,更新API失败
-Support multiline text,支持多行文本
-You can only add two environment variables at most,最多只能添加两个环境变量
-API Market - Manage Your API Configurations,API市场 - 管理您的API配置
-"Manage your API configurations here, including adding new APIs, viewing and editing existing ones.",在此处管理您的API配置，包括添加新API、查看和编辑现有API。
-Add New API,添加新API
-Refresh List,刷新列表
-Number of Keys,密钥数量
-Description,描述
-"Tip: Right-click on API item to view, edit and delete",提示: 右键点击API项可进行查看、编辑和删除操作
-"Click ""Add New API"" button to add API configuration","点击""添加新API""按钮添加API配置"
-View Details,查看详情
-API name cannot be empty,API名称不能为空
-API name already exists,API名称已存在
-API configuration saved and applied,API配置已保存并应用
-Failed to save configuration,保存配置失败
-Success,成功
-Environment Variables,环境变量
-Enter your API key,填写您的API密钥
-API key description,API密钥描述
-Save and Apply,保存并应用
-Click here for more information,点击这里获取更多信息
-LLM Provider Configuration Wizard,LLM 提供商配置向导
-Select Model,请选择模型
-Trustoken uses automatic model selection,Trustoken 使用自动模型选择
-Configuration saved,配置已保存
-Configuration loaded,配置已加载
-Failed to load configuration,加载配置失败
-Configuration applied,配置已应用
-Failed to apply configuration,应用配置失败
-Select other providers,请选择其它提供商
-Starting LLM Provider Configuration Wizard,未找到 LLM 配置，开始配置 LLM 提供商
-User cancelled configuration,用户取消配置
-https://aipy.app,https://www.aipyaipy.com
-https://d.aipy.app,https://d.aipyaipy.com
-https://d.aipy.app/d/13,https://d.aipyaipy.com/d/13
-Share result,分享结果
-Share failed,分享失败
-Share success,分享成功
-Click the link below to view the task record,点击下方链接查看任务记录
-View task record,查看任务记录
-https://sapi.trustoken.ai/aio-api,https://api.trustoken.cn/aio-api
-Next,下一步
-Back,上一步
-Cancel,取消
-Finish,完成
-Parameter,参数
-Value,值
-Current LLM,当前 LLM
-Python version,Python 版本
-Python base prefix,Python 基础前缀
-Tools,工具
-Error decoding MCP config file {}: {},解析 MCP 配置文件 {} 时出错: {}
-Current role,当前角色
-Environment operations,环境变量操作
-List environment variables,列出环境变量
-Show available commands or detailed help for a specific command,显示可用命令或详细帮助
-Command,命令
-Available commands,可用命令
-LLM operations,LLM 操作
-List LLM providers,列出 LLM 提供商
-Use a LLM provider,使用 LLM 提供商
-Task operations,任务操作
-List tasks,列出任务
-Use a LLM or a role,使用 LLM 或角色
-LLM name,LLM 名称
-Role name,角色名称
-Switch LLM,切换 LLM
+温馨提示：打开菜单栏"**帮助**"链接，可以联系**爱派**官方和加入群聊。","こんにちは！私は**AIPY**、あなたのインテリジェントなタスクアシスタントです！
+
+チームの他のメンバーを紹介します：
+
+- チューリング：宇宙最強の人工知能、複雑なタスクの分析と計画
+
+- BB-8：宇宙最強のロボット、タスクの実行を担当
+
+注：メニューバーの「**ヘルプ**」リンクをクリックして、**AIPY**公式に連絡し、グループチャットに参加してください。"
+"Select LLM Provider","选择 LLM 提供商","LLMプロバイダーを選択"
+"Provider","提供商","プロバイダー"
+"Trustoken","Trustoken","Trustoken"
+"Other","其它","その他"
+"Trustoken is an intelligent API Key management service","Trustoken 是一个智能的 API Key 管理服务","TrustokenはインテリジェントなAPIキー管理サービスです"
+"Auto get and manage API Key","自动获取和管理 API Key","APIキーの自動取得と管理"
+"Support multiple LLM providers","支持多个 LLM 提供商","複数のLLMプロバイダーをサポート"
+"Auto select optimal model","自动选择最优模型","最適なモデルの自動選択"
+"Recommended for beginners, easy to configure and feature-rich","建议小白用户选择，配置方便、功能丰富","初心者におすすめ、設定が簡単で機能が豊富"
+"Select other providers requires manual configuration","选择其它提供商需要手动配置","他のプロバイダーの選択には手動設定が必要です"
+"Need to apply for API Key yourself","需要自行申请 API Key","APIキーを自分で申請する必要があります"
+"Manually input API Key","手动输入 API Key","APIキーを手動で入力"
+"Manually select model","手动选择模型","モデルを手動で選択"
+"Trustoken Configuration","Trustoken 配置","Trustoken設定"
+"API Key","API Key","APIキー"
+"Auto open browser to get API Key","自动打开浏览器获取 API Key","ブラウザを自動で開いてAPIキーを取得"
+"Current status","当前状态","現在の状態"
+"Binding expired","绑定已过期","バインディングが期限切れ"
+"Unknown status","未知状态","不明な状態"
+"Waiting timeout","等待超时","待機タイムアウト"
+"API Key obtained successfully!","API Key 获取成功！","APIキーの取得に成功しました！"
+"API Key acquisition failed, please try again","API Key 获取失败，请重试","APIキーの取得に失敗しました、再度お試しください"
+"Requesting binding","正在申请绑定","バインディングを申請中"
+"Waiting for user confirmation","等待用户确认","ユーザー確認を待機中"
+"Remaining time","剩余时间","残り時間"
+"seconds","秒","秒"
+"You can also click this link to open browser to get API Key","你也可以点击此链接打开浏览器获取API Key","このリンクをクリックしてブラウザでAPIキーを取得することもできます"
+"Please get API Key first","请先获取API Key","まずAPIキーを取得してください"
+"Available Models","请选择模型","利用可能なモデル"
+"Temperature (%)","请输入 Temperature（0-1，默认：0.7）","Temperatureを入力してください（0-1、デフォルト：0.7）"
+"Please select provider and input API Key, click Next to verify","请选择提供商并输入API Key，点击下一步验证","プロバイダーを選択し、APIキーを入力して、次へをクリックして検証してください"
+"Please select model to use and configure parameters","请选择要使用的模型并配置参数","使用するモデルを選択し、パラメータを設定してください"
+"Model list acquisition failed","无法获取模型列表，请检查 API Key 是否正确","モデルリストの取得に失敗しました、APIキーが正しいか確認してください"
+"Hint","提示","ヒント"
+"API Name","API名称","API名"
+"Delete","删除","削除"
+"Confirm Delete","确认删除","削除の確認"
+"Are you sure to delete API","确定要删除API","APIを削除してもよろしいですか"
+"Add API","新增API","APIを追加"
+"Edit API","编辑API","APIを編集"
+"API Key Settings","API密钥设置","APIキー設定"
+"Add Environment Variable","添加环境变量","環境変数を追加"
+"API Description","API描述","API説明"
+"API Description Hint","提示: 描述支持多行文本，将以"""..."""格式保存","ヒント: 説明は複数行のテキストをサポートし、"""..."""形式で保存されます"
+"Save","保存","保存"
+"Variable Name","变量名","変数名"
+"Value","值","値"
+"Remove","移除","削除"
+"Add","添加","追加"
+"Refresh","刷新","更新"
+"No API configured","暂无API配置","API設定がありません"
+"API Details","API详情","API詳細"
+"Close","关闭","閉じる"
+"API configuration saved","API配置已保存","API設定が保存されました"
+"Failed to save API configuration","保存API配置失败","API設定の保存に失敗しました"
+"API configuration loaded","API配置已加载","API設定が読み込まれました"
+"Failed to load API configuration","加载API配置失败","API設定の読み込みに失敗しました"
+"API deleted","API已删除","APIが削除されました"
+"Failed to delete API","删除API失败","APIの削除に失敗しました"
+"API added","API已添加","APIが追加されました"
+"Failed to add API","添加API失败","APIの追加に失敗しました"
+"API updated","API已更新","APIが更新されました"
+"Failed to update API","更新API失败","APIの更新に失敗しました"
+"Support multiline text","支持多行文本","複数行テキストをサポート"
+"You can only add two environment variables at most","最多只能添加两个环境变量","最大2つの環境変数しか追加できません"
+"API Market - Manage Your API Configurations","API市场 - 管理您的API配置","APIマーケット - API設定の管理"
+"Manage your API configurations here, including adding new APIs, viewing and editing existing ones.","在此处管理您的API配置，包括添加新API、查看和编辑现有API。","ここでAPI設定を管理できます。新しいAPIの追加、既存のAPIの表示と編集が含まれます。"
+"Add New API","添加新API","新しいAPIを追加"
+"Refresh List","刷新列表","リストを更新"
+"Number of Keys","密钥数量","キーの数"
+"Description","描述","説明"
+"Tip: Right-click on API item to view, edit and delete","提示: 右键点击API项可进行查看、编辑和删除操作","ヒント: API項目を右クリックして、表示、編集、削除操作を行えます"
+"Click ""Add New API"" button to add API configuration","点击""添加新API""按钮添加API配置","「新しいAPIを追加」ボタンをクリックしてAPI設定を追加"
+"View Details","查看详情","詳細を表示"
+"API name cannot be empty","API名称不能为空","API名は空にできません"
+"API name already exists","API名称已存在","API名がすでに存在します"
+"API configuration saved and applied","API配置已保存并应用","API設定が保存され、適用されました"
+"Failed to save configuration","保存配置失败","設定の保存に失敗しました"
+"Success","成功","成功"
+"Environment Variables","环境变量","環境変数"
+"Enter your API key","填写您的API密钥","APIキーを入力してください"
+"API key description","API密钥描述","APIキー説明"
+"Save and Apply","保存并应用","保存して適用"
+"Click here for more information","点击这里获取更多信息","詳細についてはここをクリック"
+"LLM Provider Configuration Wizard","LLM 提供商配置向导","LLMプロバイダー設定ウィザード"
+"Select Model","请选择模型","モデルを選択"
+"Trustoken uses automatic model selection","Trustoken 使用自动模型选择","Trustokenは自動モデル選択を使用"
+"Configuration saved","配置已保存","設定が保存されました"
+"Configuration loaded","配置已加载","設定が読み込まれました"
+"Failed to load configuration","加载配置失败","設定の読み込みに失敗しました"
+"Configuration applied","配置已应用","設定が適用されました"
+"Failed to apply configuration","应用配置失败","設定の適用に失敗しました"
+"Select other providers","请选择其它提供商","他のプロバイダーを選択"
+"Starting LLM Provider Configuration Wizard","未找到 LLM 配置，开始配置 LLM 提供商","LLM設定が見つかりません、LLMプロバイダーの設定を開始"
+"User cancelled configuration","用户取消配置","ユーザーが設定をキャンセルしました"
+"https://aipy.app","https://www.aipyaipy.com","https://aipy.app"
+"https://d.aipy.app","https://d.aipyaipy.com","https://d.aipy.app"
+"https://d.aipy.app/d/13","https://d.aipyaipy.com/d/13","https://d.aipy.app/d/13"
+"Share result","分享结果","結果を共有"
+"Share failed","分享失败","共有に失敗しました"
+"Share success","分享成功","共有に成功しました"
+"Click the link below to view the task record","点击下方链接查看任务记录","以下のリンクをクリックしてタスク記録を表示"
+"View task record","查看任务记录","タスク記録を表示"
+"https://sapi.trustoken.ai/aio-api","https://api.trustoken.cn/aio-api","https://sapi.trustoken.ai/aio-api"
+"Next","下一步","次へ"
+"Back","上一步","戻る"
+"Finish","完成","完了"
+"Parameter","参数","パラメータ"
+"Value","值","値"
+"Current LLM","当前 LLM","現在のLLM"
+"Python version","Python 版本","Pythonバージョン"
+"Python base prefix","Python 基础前缀","Python基本プレフィックス"
+"Tools","工具","ツール"
+"Error decoding MCP config file {}: {}","解析 MCP 配置文件 {} 时出错: {}","MCP設定ファイル {} の解析エラー: {}"
+"Current role","当前角色","現在の役割"
+"Environment operations","环境变量操作","環境変数操作"
+"List environment variables","列出环境变量","環境変数を一覧表示"
+"Show available commands or detailed help for a specific command","显示可用命令或详细帮助","利用可能なコマンドまたは特定のコマンドの詳細ヘルプを表示"
+"Command","命令","コマンド"
+"Available commands","可用命令","利用可能なコマンド"
+"LLM operations","LLM 操作","LLM操作"
+"List LLM providers","列出 LLM 提供商","LLMプロバイダーを一覧表示"
+"Use a LLM provider","使用 LLM 提供商","LLMプロバイダーを使用"
+"Task operations","任务操作","タスク操作"
+"List tasks","列出任务","タスクを一覧表示"
+"Use a LLM or a role","使用 LLM 或角色","LLMまたは役割を使用"
+"LLM name","LLM 名称","LLM名"
+"Role name","角色名称","役割名"
+"Switch LLM","切换 LLM","LLMを切り替え"
+"MCP operations","MCP 操作","MCP操作"
+"List MCP servers","列出 MCP 服务器","MCPサーバーを一覧表示"
+"Enable MCP server","启用 MCP 服务器","MCPサーバーを有効化"
+"Disable MCP server","禁用 MCP 服务器","MCPサーバーを無効化"
+"MCP server name","MCP 服务器名称","MCPサーバー名"
+"MCP server status","MCP 服务器状态","MCPサーバー状態"
+"MCP server tools","MCP 服务器工具","MCPサーバーツール"
+"MCP server tools count","MCP 服务器工具数量","MCPサーバーツールの数"
+"MCP server tools list","MCP 服务器工具列表","MCPサーバーツールリスト"
+"Or directly enter the question to be processed by AI, for example:\n>> Who are you?","或者直接输入需要 AI 处理的问题，例如：\n>> 你是谁？","または、AIに処理させる質問を直接入力してください、例：\n>> あなたは誰？"

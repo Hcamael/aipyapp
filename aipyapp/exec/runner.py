@@ -72,7 +72,7 @@ class Runner():
     def globals(self):
         return self._globals
     
-    def _exec_python_block(self, block):
+    def _exec_python_block(self, block, params=None):
         old_stdout, old_stderr = sys.stdout, sys.stderr
         captured_stdout = StringIO()
         captured_stderr = StringIO()
@@ -82,6 +82,7 @@ class Runner():
         session = self._globals['__storage__'].copy()
         gs = self._globals.copy()
         gs['__result__'].clear()
+        gs['__params__'] = params
         try:
             exec(block.code, gs)
         except (SystemExit, Exception) as e:
@@ -122,7 +123,7 @@ class Runner():
             result = {'stderr': f'Exec: Ignore unsupported block type: {lang}'}
             history = {}
 
-        history['block_id'] = block.id
+        history['block_name'] = block.name
         history['result'] = result
         self.history.append(history)
         return result.copy()

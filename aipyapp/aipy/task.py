@@ -5,10 +5,7 @@ import os
 import json
 import uuid
 import time
-import platform
-import locale
-from pathlib import Path
-from datetime import date, datetime
+from datetime import datetime
 from collections import namedtuple
 from importlib.resources import read_text
 
@@ -29,6 +26,7 @@ from .plugin import event_bus
 from .utils import get_safe_filename
 from .blocks import CodeBlocks, CodeBlock
 from .interface import Stoppable
+from . import prompt
 
 CONSOLE_WHITE_HTML = read_text(__respkg__, "console_white.html")
 CONSOLE_CODE_HTML = read_text(__respkg__, "console_code.html")
@@ -46,7 +44,7 @@ class Task(Stoppable):
         self.gui = manager.gui
         self.console = Console(file=manager.console.file, record=True)
         self.max_rounds = self.settings.get('max_rounds', self.MAX_ROUNDS)
-
+        self.cwd = manager.cwd / self.task_id
         self.client = None
         self.runner = None
         self.instruction = None
@@ -100,39 +98,31 @@ class Task(Stoppable):
         task['runner'] = self.runner.history
         task['blocks'] = self.code_blocks.to_list()
 
-        filename = f"{self.task_id}.json"
+        filename = "task.json"
         try:
             json.dump(task, open(filename, 'w', encoding='utf-8'), ensure_ascii=False, indent=4, default=str)
         except Exception as e:
             self.log.exception('Error saving task')
 
-        filename = f"{self.task_id}.html"
+        filename = "console.html"
         #self.save_html(filename, task)
         self.save(filename)
         self.log.info('Task auto saved')
 
     def done(self):
-        curname = f"{self.task_id}.json"
-        jsonname = get_safe_filename(self.instruction, extension='.json')
-        if jsonname and os.path.exists(curname):
+        os.chdir(self.manager.cwd)  # Change back to the original working directory
+        curname = self.task_id
+        newname = get_safe_filename(self.instruction, extension=None)
+        if newname and os.path.exists(curname):
             try:
-                os.rename(curname, jsonname)
+                os.rename(curname, newname)
             except Exception as e:
-                self.log.exception('Error renaming task json file')
-
-        curname = f"{self.task_id}.html"
-        htmlname = get_safe_filename(self.instruction, extension='.html')
-        if htmlname and os.path.exists(curname):
-            try:
-                os.rename(curname, htmlname)
-            except Exception as e:
-                self.log.exception('Error renaming task html file')
+                self.log.exception('Error renaming task directory', curname=curname, newname=newname)
 
         self.diagnose.report_code_error(self.runner.history)
         self.done_time = time.time()
-        self.log.info('Task done', jsonname=jsonname, htmlname=htmlname)
-        filename = str(Path(htmlname).resolve())
-        self.console.print(f"[green]{T('Result file saved')}: \"{filename}\"")
+        self.log.info('Task done', parh=newname)
+        self.console.print(f"[green]{T('Result file saved')}: \"{newname}\"")
         if self.settings.get('share_result'):
             self.sync_to_cloud()
         
@@ -146,6 +136,11 @@ class Task(Stoppable):
         json_str = json.dumps(ret, ensure_ascii=False, indent=2, default=str)
         self.box(f"✅ {T('Message parse result')}", json_str, lang="json")
 
+        if 'call_tool' in ret:
+            # 有可能MCP调用会按照代码格式返回，这种情况下存在exec_blocks和call_tool两个键,也可能会有erros字段
+            # 优先处理call_tool
+            return self.process_mcp_reply(ret['call_tool'])
+
         errors = ret.get('errors')
         if errors:
             event_bus('result', errors)
@@ -154,8 +149,6 @@ class Task(Stoppable):
             ret = self.chat(feed_back)
         elif 'exec_blocks' in ret:
             ret = self.process_code_reply(ret['exec_blocks'])
-        elif 'call_tool' in ret:
-            ret = self.process_mcp_reply(ret['call_tool'])
         else:
             ret = None
         return ret
@@ -163,59 +156,48 @@ class Task(Stoppable):
     def print_code_result(self, block, result, title=None):
         line_numbers = True if 'traceback' in result else False
         syntax_code = Syntax(block.code, block.lang, line_numbers=line_numbers, word_wrap=True)
-        syntax_result = Syntax(result, 'json', line_numbers=False, word_wrap=True)
+        json_result = json.dumps(result, ensure_ascii=False, indent=2, default=str)
+        syntax_result = Syntax(json_result, 'json', line_numbers=False, word_wrap=True)
         group = Group(syntax_code, Rule(), syntax_result)
-        panel = Panel(group, title=title or block.id)
+        panel = Panel(group, title=title or block.name)
         self.console.print(panel)
 
     def process_code_reply(self, exec_blocks):
         results = []
-        json_results = []
         for block in exec_blocks:
             event_bus('exec', block)
-            self.console.print(f"⚡ {T('Start executing code block')}: {block.id}", style='dim white')
+            self.console.print(f"⚡ {T('Start executing code block')}: {block.name}", style='dim white')
             result = self.runner(block)
-            json_result = json.dumps(result, ensure_ascii=False, indent=2, default=str)
-            result['block_id'] = block.id
+            self.print_code_result(block, result)
+            result['block_name'] = block.name
             results.append(result)
-            json_results.append(json_result)
-            self.print_code_result(block, json_result)
             event_bus('result', result)
 
-        if len(json_results) == 1:
-            json_results = json_results[0]
-        else:
-            json_results = json.dumps(results, ensure_ascii=False, indent=4, default=str)
-        
+        msg = prompt.get_results_prompt(results)
         self.console.print(f"{T('Start sending feedback')}...", style='dim white')
-        feed_back = f"# 最初任务\n{self.instruction}\n\n# 代码执行结果反馈\n{json_results}"
+        feed_back = json.dumps(msg, ensure_ascii=False, default=str)
         return self.chat(feed_back)
 
     def process_mcp_reply(self, json_content):
         """处理 MCP 工具调用的回复"""
         block = {'content': json_content, 'language': 'json'}
         event_bus('tool_call', block)
-        json_content = block['content']
         self.console.print(f"⚡ {T('Start calling MCP tool')} ...", style='dim white')
 
         call_tool = json.loads(json_content)
         result = self.mcp.call_tool(call_tool['name'], call_tool.get('arguments', {}))
         event_bus('result', result)
-        result_json = json.dumps(result, ensure_ascii=False, indent=2, default=str)
         code_block = CodeBlock(
-            id=call_tool.get('id', 'mcp_tool'),
             code=json_content,
             lang='json',
+            name=call_tool.get('name', 'MCP Tool Call'),
+            version=1,
         )
-        self.print_code_result(code_block, result_json, title=T("MCP tool call result"))
+        self.print_code_result(code_block, result, title=T("MCP tool call result"))
 
         self.console.print(f"{T('Start sending feedback')}...", style='dim white')
-        feed_back = f"""# MCP 调用\n\n{self.instruction}\n
-# 执行结果反馈
-
-````json
-{result_json}
-````"""
+        msg = prompt.get_mcp_result_prompt(result)
+        feed_back = json.dumps(msg, ensure_ascii=False, default=str)
         feedback_response = self.chat(feed_back)
         return feedback_response
 
@@ -260,21 +242,6 @@ class Task(Stoppable):
         event_bus.broadcast('summary', summarys)
         self.console.print(f"\n⏹ [cyan]{T('End processing instruction')} {summarys}")
 
-    def build_user_prompt(self):
-        prompt = {'task': self.instruction}
-        prompt['python_version'] = platform.python_version()
-        prompt['platform'] = platform.platform()
-        prompt['today'] = date.today().isoformat()
-        prompt['locale'] = locale.getlocale()
-        prompt['think_and_reply_language'] = '始终根据用户查询的语言来进行所有内部思考和回复，即用户使用什么语言，你就要用什么语言思考和回复。'
-        prompt['work_dir'] = '工作目录为当前目录，默认在当前目录下创建文件'
-        if self.gui:
-            prompt['matplotlib'] = "我现在用的是 matplotlib 的 Agg 后端，请默认用 plt.savefig() 保存图片后用 runtime.display() 显示，禁止使用 plt.show()"
-            #prompt['wxPython'] = "你回复的Markdown 消息中，可以用 ![图片](图片路径) 的格式引用之前创建的图片，会显示在 wx.html2 的 WebView 中"
-        else:
-            prompt['TERM'] = os.environ.get('TERM')
-            prompt['LC_TERMINAL'] = os.environ.get('LC_TERMINAL')
-        return prompt
 
     def chat(self, instruction, *, system_prompt=None):
         quiet = self.settings.gui and not self.settings.debug
@@ -297,16 +264,20 @@ class Task(Stoppable):
         if not self.start_time:
             self.start_time = time.time()
             self.instruction = instruction
-            prompt = self.build_user_prompt()
+            msg = prompt.get_task_prompt(instruction, gui=self.gui)
             event_bus('task_start', prompt)
-            instruction = json.dumps(prompt, ensure_ascii=False)
             system_prompt = self.system_prompt
         else:
             system_prompt = None
+            msg = prompt.get_chat_prompt(instruction, self.instruction)
+
+        self.cwd.mkdir(exist_ok=True)
+        os.chdir(self.cwd)
 
         rounds = 1
         max_rounds = self.max_rounds
-        response = self.chat(instruction, system_prompt=system_prompt)
+        json_prompt = json.dumps(msg, ensure_ascii=False, default=str)
+        response = self.chat(json_prompt, system_prompt=system_prompt)
         while response and rounds <= max_rounds:
             response = self.process_reply(response)
             rounds += 1

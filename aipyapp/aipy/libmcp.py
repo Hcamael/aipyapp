@@ -12,13 +12,99 @@ from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 from mcp.client.sse import sse_client
 from mcp.client.streamable_http import streamablehttp_client
+from mcp.shared.message import SessionMessage
+from mcp.types import JSONRPCMessage
 from .. import T
+
+# 猴子补丁：修复第三方库中的 _handle_json_response 方法
+# MR如果合并后，可以去掉这段代码 https://github.com/modelcontextprotocol/python-sdk/pull/1057
+async def _patched_handle_json_response(
+    self,
+    response,
+    read_stream_writer,
+    is_initialization: bool = False,
+) -> None:
+    """修复后的 JSON 响应处理方法"""
+    try:
+        content = await response.aread()
+
+        # Parse JSON first to determine structure
+        data = json.loads(content)
+
+        if isinstance(data, list):
+            messages = [JSONRPCMessage.model_validate(item) for item in data]  # type: ignore
+        else:
+            message = JSONRPCMessage.model_validate(data)
+            messages = [message]
+
+        for message in messages:
+            if is_initialization:
+                self._maybe_extract_protocol_version_from_message(message)
+
+            session_message = SessionMessage(message)
+            await read_stream_writer.send(session_message)
+    except Exception as exc:
+        logger.error(f"Error parsing JSON response: {exc}")
+        await read_stream_writer.send(exc)
+
+# 应用猴子补丁
+def _apply_streamable_http_patch():
+    """应用 StreamableHTTP 客户端的补丁"""
+    try:
+        from mcp.client.streamable_http import StreamableHTTPTransport
+        # 替换原有方法
+        StreamableHTTPTransport._handle_json_response = _patched_handle_json_response
+        logger.debug("Applied StreamableHTTP patch for _handle_json_response")
+    except ImportError as e:
+        logger.warning(f"Failed to apply StreamableHTTP patch: {e}")
+
+# 在模块加载时应用补丁
+_apply_streamable_http_patch()
+
+
 # 预编译正则表达式
 CODE_BLOCK_PATTERN = re.compile(r"```(?:json)?\s*([\s\S]*?)\s*```")
 JSON_PATTERN = re.compile(r"(\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\})")
 
+def extra_call_tool_blocks(blocks) -> str:
+    """
+    从代码块列表中提取 MCP call_tool JSON。
 
-def extract_call_tool(text) -> str:
+    Args:
+        blocks (list): CodeBlock 对象列表
+
+    Returns:
+        str: 找到的 JSON 字符串，如果没找到则返回空字符串
+    """
+    if not blocks:
+        return ""
+
+    for block in blocks:
+        # 检查代码块是否是 JSON 格式
+        if hasattr(block, 'lang') and block.lang and block.lang.lower() in ['json', '']:
+            # 尝试解析代码块内容
+            content = getattr(block, 'code', '') if hasattr(block, 'code') else str(block)
+            if content:
+                content = content.strip()
+                try:
+                    data = json.loads(content)
+                    # 验证是否是 call_tool 动作
+                    if not isinstance(data, dict):
+                        continue
+                    if "action" not in data or "name" not in data:
+                        continue
+                    if "arguments" in data and not isinstance(data["arguments"], dict):
+                        continue
+
+                    # 返回 JSON 字符串
+                    return json.dumps(data, ensure_ascii=False)
+                except json.JSONDecodeError:
+                    continue
+
+    return ""
+
+
+def extract_call_tool_str(text) -> str:
     """
     Extract MCP call_tool JSON from text.
 
@@ -368,6 +454,39 @@ class MCPToolManager:
         self._save_cache()
 
         return all_tools
+
+    def get_tools_prompt(self):
+        """
+        获取工具列表并转换为 Markdown 格式
+        返回格式示例：
+        ```markdown
+        ## 工具列表
+        {"name": "xxxx", "description": "xxxx", "arguments": {"key": "val"}}
+        ```
+        """
+        tools = self.list_tools()
+        if not tools:
+            return ""
+
+        ret = []
+        for tool in tools:
+            # 构建工具信息的 JSON 对象
+            # 去掉 inputSchema里的additionalProperties、$schema
+            input_schema = tool.get("inputSchema", {}).copy()
+            if "additionalProperties" in input_schema:
+                del input_schema["additionalProperties"]
+            if "$schema" in input_schema:
+                del input_schema["$schema"]
+
+            ret.append({
+                "name": tool.get("name", ""),
+                "description": tool.get("description", ""),
+                "arguments": input_schema
+            })
+
+        # 转换为 JSON 字符串并添加到 Markdown 中
+        json_str = json.dumps(ret, ensure_ascii=False)
+        return f"```json\n{json_str}\n```\n"
 
     def _get_all_tools(self):
         """返回所有工具的列表"""

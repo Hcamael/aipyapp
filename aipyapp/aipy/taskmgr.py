@@ -35,9 +35,9 @@ class TaskManager:
             workdir = Path.cwd() / settings.workdir
             workdir.mkdir(parents=True, exist_ok=True)
             os.chdir(workdir)
-            self._cwd = workdir
+            self.cwd = workdir
         else:
-            self._cwd = Path.cwd()
+            self.cwd = Path.cwd()
         self.mcp = get_mcp(settings.get('_config_dir'))
         self._init_environ()
         self.tt_api_key = get_tt_api_key(settings)
@@ -51,7 +51,7 @@ class TaskManager:
 
     @property
     def workdir(self):
-        return str(self._cwd)
+        return str(self.cwd)
 
     def get_tasks(self):
         return list(self.tasks)
@@ -127,25 +127,6 @@ class TaskManager:
 
         self.api_prompt = "\n".join(lines)
 
-
-    def _update_mcp_prompt(self, prompt):
-        """更新 MCP 工具提示信息"""
-        mcp_tools = self.mcp.list_tools()
-        if not mcp_tools:
-            return prompt
-        tools_json = json.dumps(mcp_tools, ensure_ascii=False)
-        lines = [prompt]
-        lines.append("""\n## MCP工具调用规则：
-1. 如果需要调用MCP工具，请以 JSON 格式输出你的决策和调用参数，并且仅返回json，不输出其他内容。
-2. 返回 JSON 格式如下：
-{"action": "call_tool", "name": "tool_name", "arguments": {"arg_name": "arg_value", ...}}
-3. 一次只能返回一个工具，即只能返回一个 JSON 代码块，不能有其它多余内容。
-以下是你可用的工具，以 JSON 数组形式提供：
-""")
-        lines.append(f"```json\n{tools_json}\n```")
-        # 更新系统提示
-        return "\n".join(lines)
-
     def new_task(self):
         if self.task:
             task = self.task
@@ -154,10 +135,11 @@ class TaskManager:
             return task
 
         with_mcp = self.settings.get('mcp', {}).get('enable', True)
-        system_prompt = get_system_prompt(self.tips_manager.current_tips, self.api_prompt, self.settings.get('system_prompt'))
+
+        mcp_tools = ""
         if self.mcp and with_mcp:
-            self.log.info('Update MCP prompt')
-            system_prompt = self._update_mcp_prompt(system_prompt)
+            mcp_tools = self.mcp.get_tools_prompt()
+        system_prompt = get_system_prompt(self.tips_manager.current_tips, self.api_prompt, self.settings.get('system_prompt'), mcp_tools=mcp_tools)
 
         task = Task(self)
         task.client = self.client_manager.Client()

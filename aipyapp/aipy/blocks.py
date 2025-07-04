@@ -10,12 +10,13 @@ from typing import Optional, Dict, Any
 
 from loguru import logger
 
-from .libmcp import extract_call_tool
+from .libmcp import extract_call_tool_str, extra_call_tool_blocks
 
 @dataclass
 class CodeBlock:
     """代码块对象"""
-    id: str
+    name: str
+    version: int
     lang: str
     code: str
     path: Optional[str] = None
@@ -43,18 +44,20 @@ class CodeBlock:
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典"""
         return {
-            'id': self.id,
+            'name': self.name,
+            'version': self.version,
             'lang': self.lang,
             'code': self.code,
             'path': self.path,
         }
 
     def __repr__(self):
-        return f"<CodeBlock id={self.id}, lang={self.lang}, path={self.path}>"
+        return f"<CodeBlock name={self.name}, version={self.version}, lang={self.lang}, path={self.path}>"
 
 class CodeBlocks:
     def __init__(self, console):
         self.console = console
+        self.history = []
         self.blocks = OrderedDict()
         self.code_pattern = re.compile(
             r'<!--\s*Block-Start:\s*(\{.*?\})\s*-->\s*```(\w+)?\s*\n(.*?)\n```\s*<!--\s*Block-End:\s*(\{.*?\})\s*-->',
@@ -79,28 +82,31 @@ class CodeBlocks:
                 errors.append(error)
                 continue
 
-            code_id = start_meta.get("id")
-            if code_id != end_meta.get("id"):
-                self.log.error("Start and end id mismatch", start_id=code_id, end_id=end_meta.get("id"))
-                error = {'Start and end id mismatch': {'start_id': code_id, 'end_id': end_meta.get("id")}}
+            code_name = start_meta.get("name")
+            if code_name != end_meta.get("name"):
+                self.log.error("Start and end name mismatch", start_name=code_name, end_name=end_meta.get("name"))
+                error = {'Start and end name mismatch': {'start_name': code_name, 'end_name': end_meta.get("name")}}
                 errors.append(error)
                 continue
 
-            if code_id in blocks or code_id in self.blocks:
-                self.log.error("Duplicate code id", code_id=code_id)
-                error = {'Duplicate code id': {'code_id': code_id}}
+            version = start_meta.get("version", 1)
+            if (code_name in blocks or code_name in self.blocks) and version == self.blocks.get(code_name).version:
+                self.log.error("Duplicate code name with same version", code_name=code_name, version=version)
+                error = {'Duplicate code name with same version': {'code_name': code_name, 'version': version}}
                 errors.append(error)
                 continue
 
             # 创建代码块对象
             block = CodeBlock(
-                id=code_id,
+                name=code_name,
+                version=version,
                 lang=lang,
                 code=content,
-                path=start_meta.get('path')
+                path=start_meta.get('path'),
             )
-            
-            blocks[code_id] = block
+
+            blocks[code_name] = block
+            self.history.append(block)
             self.log.info("Parsed code block", code_block=block)
 
             try:
@@ -125,13 +131,13 @@ class CodeBlocks:
 
             error = None
             if cmd == 'Exec':
-                exec_id = line_meta.get("id")
-                if not exec_id:
-                    error = {'Cmd-Exec block without id': {'json_str': json_str}}
-                elif exec_id not in self.blocks:
-                    error = {'Cmd-Exec block not found': {'exec_id': exec_id}}
+                exec_name = line_meta.get("name")
+                if not exec_name:
+                    error = {'Cmd-Exec block without name': {'json_str': json_str}}
+                elif exec_name not in self.blocks:
+                    error = {'Cmd-Exec block not found': {'exec_name': exec_name, 'json_str': json_str}}
                 else:
-                    exec_blocks.append(self.blocks[exec_id])
+                    exec_blocks.append(self.blocks[exec_name])
             else:
                 error = {f'Unknown command in Cmd-{cmd} block': {'cmd': cmd}}
 
@@ -142,29 +148,31 @@ class CodeBlocks:
         if errors: ret['errors'] = errors
         if exec_blocks: ret['exec_blocks'] = exec_blocks
         if blocks: ret['blocks'] = [v for v in blocks.values()]
-        
-        if parse_mcp and not blocks:
-            json_content = extract_call_tool(markdown_text)
+
+        if parse_mcp:
+            # 首先尝试从代码块中提取 MCP 调用, 然后尝试从markdown文本中提取
+            json_content = extra_call_tool_blocks(list(blocks.values())) or extract_call_tool_str(markdown_text)
+
             if json_content:
                 ret['call_tool'] = json_content
                 self.log.info("Parsed MCP call_tool", json_content=json_content)
 
         return ret
     
-    def get_code_by_id(self, code_id):
+    def get_code_by_name(self, code_name):
         try:
-            return self.blocks[code_id].code
+            return self.blocks[code_name].code
         except KeyError:
-            self.log.error("Code id not found", code_id=code_id)
-            self.console.print("❌ Code id not found", code_id=code_id)
+            self.log.error("Code name not found", code_name=code_name)
+            self.console.print("❌ Code name not found", code_name=code_name)
             return None
-        
-    def get_block_by_id(self, code_id):
+
+    def get_block_by_name(self, code_name):
         try:
-            return self.blocks[code_id]
+            return self.blocks[code_name]
         except KeyError:
-            self.log.error("Code id not found", code_id=code_id)
-            self.console.print("❌ Code id not found", code_id=code_id)
+            self.log.error("Code name not found", code_name=code_name)
+            self.console.print("❌ Code name not found", code_name=code_name)
             return None
 
     def to_list(self):
@@ -173,5 +181,5 @@ class CodeBlocks:
         Returns:
             str: JSON 格式的字符串
         """
-        blocks = [block.to_dict() for block in self.blocks.values()]
+        blocks = [block.to_dict() for block in self.history]
         return blocks

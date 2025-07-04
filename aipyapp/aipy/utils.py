@@ -61,7 +61,7 @@ def get_safe_filename(input_str, extension=".html", max_length=16):
 
     name = safe_str[:max_length]
     base_name = name
-    filename = f"{base_name}{extension}"
+    filename = f"{base_name}{extension}" if extension else base_name
     counter = 1
 
     while os.path.exists(filename):
