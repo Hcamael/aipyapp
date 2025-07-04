@@ -20,7 +20,7 @@ dependencies = [
   "qrcode>=8.1",
   "loguru>=0.7.3",
   "questionary>=2.1.0",
-  "mcp[cli]>=1.9.2",
+  "mcp[cli]>=1.10.0",
   "openpyxl>=3.1.5",
 ]
 

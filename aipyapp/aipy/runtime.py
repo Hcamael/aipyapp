@@ -70,5 +70,5 @@ class Runtime(BaseRuntime):
     def input(self, prompt=''):
         return self.console.input(prompt)    
     
-    def get_code_by_id(self, code_id):
-        return self.task.code_blocks.get_code_by_id(code_id)
+    def get_block_by_name(self, block_name):
+        return self.task.code_blocks.get_block_by_name(block_name)

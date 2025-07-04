@@ -5,7 +5,7 @@ from .base import BaseCommand
 
 class MCPCommand(BaseCommand):
     name = 'mcp'
-    description = 'MCP operations'
+    description = T('MCP operations')
 
     def process_mcp_ret(self, arg, ret):
         if ret.get("status", "success") == "success":
@@ -23,11 +23,11 @@ class MCPCommand(BaseCommand):
             print("操作失败", ret.get("message", ''))
 
     def add_subcommands(self, subparsers):
-        subparsers.add_parser('list', help='List MCP servers')
-        parser = subparsers.add_parser('enable', help='Enable MCP server')
-        parser.add_argument('server', nargs='?', default=None, help='MCP server name')
-        parser = subparsers.add_parser('disable', help='Disable MCP server')
-        parser.add_argument('server', nargs='?', default=None, help='MCP server name')
+        subparsers.add_parser('list', help=T('List MCP servers'))
+        parser = subparsers.add_parser('enable', help=T('Enable MCP server'))
+        parser.add_argument('server', nargs='?', default=None, help=T('MCP server name'))
+        parser = subparsers.add_parser('disable', help=T('Disable MCP server'))
+        parser.add_argument('server', nargs='?', default=None, help=T('MCP server name'))
 
     def execute(self, args):
         print(args.raw_args)

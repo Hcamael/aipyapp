@@ -25,3 +25,6 @@ class HelpCommand(BaseCommand):
             for cmd, cmd_instance in sorted(manager.commands.items()):
                 rows.append([f"/{cmd}", cmd_instance.description])
             print_table(rows, headers=[T('Command'), T('Description')], title=T('Available commands'))
+            print()
+            print(T("Or directly enter the question to be processed by AI, for example:\n>> Who are you?"))
+            print()
