@@ -4,6 +4,7 @@
 import sys
 import json
 import traceback
+from pathlib import Path
 from io import StringIO
 import webbrowser
 
@@ -62,11 +63,11 @@ class Runner():
         self.runtime = runtime
         self.history = []
         self.log = logger.bind(src='runner')
-        self._globals = {'runtime': runtime, '__name__': '__main__', 'input': self.runtime.input}
+        self._globals = {'aipyrun': runtime, '__name__': '__main__'}
         exec(INIT_IMPORTS, self._globals)
 
     def __repr__(self):
-        return f"<Runner history={len(self.history)}, env={len(self.env)}>"
+        return f"<Runner history={len(self.history)}>"
     
     @property
     def globals(self):
@@ -129,9 +130,10 @@ class Runner():
         return result.copy()
         
     def _exec_html_block(self, block):
-        abs_path = block.abs_path
-        if abs_path:
-            webbrowser.open(f'file://{abs_path}')
+        cwd = self.runtime.task.cwd
+        path = cwd / Path(block.path)
+        path.write_text(block.code, encoding='utf-8')
+        self.runtime.upload_file(str(path))
         result = {'stdout': 'OK'}
         return result, {}
 

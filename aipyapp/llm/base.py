@@ -14,7 +14,7 @@ from .. import T
 class ChatMessage:
     role: str
     content: str
-    reason: str = None
+    reason: str = ""
     usage: Counter = field(default_factory=Counter)
 
 class BaseClient(ABC):
@@ -77,14 +77,14 @@ class BaseClient(ABC):
         pass
 
     @abstractmethod
-    def _parse_stream_response(self, response, stream_processor):
+    def _parse_stream_response(self, response, stream_processor) -> 'ChatMessage':
         pass
 
     @abstractmethod
-    def _parse_response(self, response):
+    def _parse_response(self, response) -> 'ChatMessage':
         pass
     
-    def __call__(self, history, prompt, system_prompt=None, stream_processor=None):
+    def __call__(self, history, prompt, system_prompt=None, stream_processor=None) -> 'ChatMessage':
         # We shall only send system prompt once
         if not history and system_prompt:
             self.add_system_prompt(history, system_prompt)
@@ -102,7 +102,7 @@ class BaseClient(ABC):
         else:
             msg = self._parse_response(response)
 
-        msg.usage['time'] = round(time.time() - start, 3)
+        msg.usage['time'] = round(time.time() - start, 3) # type: ignore
         history.add_message(msg)
         return msg
     

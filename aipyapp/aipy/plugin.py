@@ -5,6 +5,7 @@ import os
 import threading
 import traceback
 import importlib.util
+from pathlib import Path
 from typing import Callable, Any, Dict, List
 
 class EventBus:
@@ -52,7 +53,7 @@ class EventBus:
 event_bus = EventBus()
 
 class PluginManager:
-    def __init__(self, plugin_dir: str):
+    def __init__(self, plugin_dir: str|Path):
         # Get the system plugin directory
         # This is the directory where the `aio_api.py` file is located
         self.sys_plugin_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'plugins')

@@ -3,6 +3,7 @@
 
 from typing import List, Dict, Any, Optional
 from dataclasses import dataclass, field
+from pathlib import Path
 import tomllib
 import os
 
@@ -75,7 +76,7 @@ class Tips:
         return tips
 
     @classmethod
-    def load(cls, toml_path: Optional[str] = None) -> 'Tips':
+    def load(cls, toml_path: str = "") -> 'Tips':
         """从 TOML 文件加载提示信息
         
         Args:
@@ -84,13 +85,15 @@ class Tips:
         Returns:
             Tips: 提示信息管理器
         """
+        if not toml_path:
+            raise ValueError("toml_path must not be None")
         with open(toml_path, 'rb') as f:
             data = tomllib.load(f)
         
         return cls.from_dict(data)
 
 class TipsManager:
-    def __init__(self, tips_dir: str = None):
+    def __init__(self, tips_dir: str|Path = ""):
         self.tips_dir = tips_dir
         self.tips: Dict[str, Tips] = {}
         self.default_tips: Tips

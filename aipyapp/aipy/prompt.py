@@ -12,7 +12,6 @@ SYSTEM_PROMPT_TEMPLATE = """
 {aipy_prompt}
 {tips_prompt}
 {api_prompt}
-{mcp_prompt}
 """
 
 AIPY_PROMPT = """
@@ -71,7 +70,7 @@ print("hello world")
 # Python运行环境描述
 在标准 Python 运行环境的基础上额外增加了下述功能：
 - 一些预装的第三方包
-- 全局 `runtime` 对象
+- 全局 `aipyrun` 对象
 - `set_state` 函数：设置当前代码块的执行结果状态，或保存数据到会话中。
 - `get_persistent_state` 函数：获取会话中持久化的状态值。
 
@@ -112,7 +111,7 @@ data = get_persistent_state("data")
 下述第三方包可以无需安装直接使用：
 - `requests`、`numpy`、`pandas`、`matplotlib`、`seaborn`、`bs4`。
 
-其它第三方包，都必需通过下述 runtime 对象的 install_packages 方法申请安装才能使用。
+其它第三方包，都必需通过下述 aipyrun 对象的 install_packages 方法申请安装才能使用。
 
 在使用 matplotlib 时，需要根据系统类型选择和设置合适的中文字体，否则图片里中文会乱码导致无法完成客户任务。
 示例代码如下：
@@ -127,10 +126,10 @@ font_options = {
 }
 ```
 
-## 全局 runtime 对象
-runtime 对象提供一些协助代码完成任务的方法。
+## 全局 aipyrun 对象
+aipyrun 对象提供一些协助代码完成任务的方法。
 
-### `runtime.get_block_by_name` 方法
+### `aipyrun.get_block_by_name` 方法
 - 功能: 获取指定 name 的最新版本的代码块对象
 - 定义: `get_block_by_name(code_block_name)`
 - 参数: `code_block_name` 为代码块的名称
@@ -145,18 +144,18 @@ runtime 对象提供一些协助代码完成任务的方法。
 
 可以修改代码块的 `code` 属性来更新代码内容。
 
-### runtime.install_packages 方法
+### aipyrun.install_packages 方法
 - 功能: 申请安装完成任务必需的额外模块
 - 参数: 一个或多个 PyPi 包名，如：'httpx', 'requests>=2.25'
 - 返回值:True 表示成功, False 表示失败
 
 示例如下：
 ```python
-if runtime.install_packages('httpx', 'requests>=2.25'):
+if aipyrun.install_packages('httpx', 'requests>=2.25'):
     import httpx
 ```
 
-### runtime.get_env 方法
+### aipyrun.get_env 方法
 - 功能: 获取代码运行需要的环境变量，如 API-KEY 等。
 - 定义: get_env(name, default=None, *, desc=None)
 - 参数: 第一个参数为需要获取的环境变量名称，第二个参数为不存在时的默认返回值，第三个可选字符串参数简要描述需要的是什么。
@@ -165,25 +164,11 @@ if runtime.install_packages('httpx', 'requests>=2.25'):
 示例如下：
 ```python
 env_name = '环境变量名称'
-env_value = runtime.get_env(env_name, "No env", desc='访问API服务需要')
+env_value = aipyrun.get_env(env_name, "No env", desc='访问API服务需要')
 if not env_value:
     print(f"Error: {env_name} is not set", file=sys.stderr)
 else:
     print(f"{env_name} is available")
-```
-
-### runtime.display 方法
-- 功能: 显示图片
-- 定义: display(path="path/to/image.jpg", url="https://www.example.com/image.png")
-- 参数: 
-  - path: 图片文件路径
-  - url: 图片 URL
-- 返回值: 无
-
-示例：
-```python
-runtime.display(path="path/to/image.png")
-runtime.display(url="https://www.example.com/image.png")
 ```
 
 # 代码执行结果反馈
@@ -212,74 +197,26 @@ API_PROMPT = """
 这些可能对特定任务有用途，你可以根据任务选择性使用。
 
 注意：
-1. 这些 API 信息里描述的环境变量必须用 runtime.get_env 方法获取，绝对不能使用 os.getenv 方法。
+1. 这些 API 信息里描述的环境变量必须用 aipyrun.get_env 方法获取，绝对不能使用 os.getenv 方法。
 2. API获取数据失败时，请输出完整的API响应信息，方便调试和分析问题。
 
 {apis}
 """
 
-MCP_PROMPT = """# MCP工具调用规则：
-
-在此环境中，您可以访问一组工具，用于回答用户的问题。您每条消息只能使用一个工具，并将在用户的回复中收到该工具的使用结果。您可以通过循序渐进地使用工具来完成给定任务，每次工具的使用都以前一次工具使用的结果为依据。
-
-## 工具使用格式
-需要调用工具时，请返回以下JSON代码，包含调用的工具名称和参数。
-{"action": "call_tool", "name": "tool_name", "arguments": {"arg_name": "arg_value", ...}}
-
-请始终遵守此工具使用格式，以确保正确的解析和执行。
-
-## 工具使用示例
-
-以下是一些使用概念工具的示例：
----
-User：查询成都本周的天气
-Assistant: 我可以使用 maps_weather 工具来计算操作结果。
-```json
-{"action": "call_tool", "name": "maps_weather", "arguments": {"city": "成都"}}
-```
----
-User: “以下操作的结果是什么：5 + 3 + 1294.678？”
-Assistant: 我可以使用 python_interpreter 工具来计算操作结果。
-```json
-{"action": "call_tool", "name": "python_interpreter", "arguments": {"code": "5 + 3 + 1294.678"}}
-```
-
-## 可用工具
-
-上述示例使用了可能不存在的概念工具。您只能访问以下工具， 以JSON数组形式提供：
-{mcp_tools}
-
-## 工具使用规则
-
-以下是您在解决任务时应始终遵循的规则：
-
-1.  始终为工具使用正确的参数。切勿使用变量名作为操作参数，请使用值。
-2.  仅在需要时调用工具：如果您不需要信息，请勿调用搜索代理，尝试自行解决任务。
-3.  如果不需要调用工具，直接回答问题即可。
-4.  切勿重复之前使用完全相同参数的工具调用。
-5.  对于工具使用，请务必使用上述示例中所示的 JSON 格式。请勿使用任何其他格式。
-
-"""
-
-def get_system_prompt(tips, api_prompt, user_prompt=None, mcp_tools=""):
+def get_system_prompt(tips, api_prompt, user_prompt=None) -> str:
     if user_prompt:
         user_prompt = user_prompt.strip()
     prompts = {
         'role_prompt': user_prompt or tips.role.detail,
         'aipy_prompt': AIPY_PROMPT,
         'tips_prompt': '',
-        'mcp_prompt': '',
         'api_prompt': API_PROMPT.format(apis=api_prompt)
     }
     if not user_prompt and len(tips) > 0:
         prompts['tips_prompt'] = TIPS_PROMPT.format(tips=str(tips))
-
-    if mcp_tools:
-        prompts['mcp_prompt'] = MCP_PROMPT.replace('{mcp_tools}', mcp_tools)
-
     return SYSTEM_PROMPT_TEMPLATE.format(**prompts)
 
-def get_task_prompt(instruction, gui=False):
+def get_task_prompt(instruction):
     prompt = OrderedDict()
     prompt['task'] = instruction
     prompt['source'] = "User"
@@ -290,18 +227,14 @@ def get_task_prompt(instruction, gui=False):
     context['python_version'] = platform.python_version()
     context['today'] = date.today().isoformat()
     
-    if not gui:
-        context['TERM'] = os.environ.get('TERM', 'unknown')
-        context['LC_TERMINAL'] = os.environ.get('LC_TERMINAL', 'unknown')
+    context['TERM'] = os.environ.get('TERM', 'unknown')
+    context['LC_TERMINAL'] = os.environ.get('LC_TERMINAL', 'unknown')
 
     prompt['context'] = context
 
     constraints = OrderedDict()
     constraints['reply_language'] = "Now, use the exact language of the `task` field for subsequent responses"
     constraints['file_creation_path'] = 'current_directory'
-    if gui:
-        constraints['matplotlib'] = "DO NOT use plt.show to display picture because I'm using the Agg backend. Save pictures with plt.savefig() and display them with runtime.display()."
-
     prompt['constraints'] = constraints
     return prompt
 
@@ -324,11 +257,4 @@ def get_chat_prompt(msg, task):
     constraints = OrderedDict()
     constraints['reply_language'] = "Now, use the exact language of the `message` field for subsequent responses"
     prompt['constraints'] = constraints
-    return prompt
-
-def get_mcp_result_prompt(result):
-    prompt = OrderedDict()
-    prompt['message'] = "The following is the result of the MCP tool call"
-    prompt['source'] = "MCP Tool"
-    prompt['result'] = result
     return prompt

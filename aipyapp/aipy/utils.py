@@ -53,7 +53,7 @@ def confirm_disclaimer(console):
         else:
             console.print("[yellow]请输入 yes 或 no。[/yellow]")
 
-def get_safe_filename(input_str, extension=".html", max_length=16):
+def get_safe_filename(input_str, extension=None, max_length=16):
     input_str = input_str.strip()
     safe_str = re.sub(r'[\\/:*?"<>|]', '', input_str).strip()
     if not safe_str:

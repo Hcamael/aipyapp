@@ -25,10 +25,10 @@ class CodeBlock:
         """保存代码块到文件"""
         if not self.path:
             return False
-            
-        path = Path(self.path)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(self.code, encoding='utf-8')
+        # 感觉没必要保存代码            
+        # path = Path(self.path)
+        # path.parent.mkdir(parents=True, exist_ok=True)
+        # path.write_text(self.code, encoding='utf-8')
         return True
 
     @property
@@ -68,7 +68,7 @@ class CodeBlocks:
         )
         self.log = logger.bind(src='code_blocks')
 
-    def parse(self, markdown_text, parse_mcp=False):
+    def parse(self, markdown_text) -> dict:
         blocks = OrderedDict()
         errors = []
         for match in self.code_pattern.finditer(markdown_text):
@@ -148,15 +148,6 @@ class CodeBlocks:
         if errors: ret['errors'] = errors
         if exec_blocks: ret['exec_blocks'] = exec_blocks
         if blocks: ret['blocks'] = [v for v in blocks.values()]
-
-        if parse_mcp:
-            # 首先尝试从代码块中提取 MCP 调用, 然后尝试从markdown文本中提取
-            json_content = extra_call_tool_blocks(list(blocks.values())) or extract_call_tool_str(markdown_text)
-
-            if json_content:
-                ret['call_tool'] = json_content
-                self.log.info("Parsed MCP call_tool", json_content=json_content)
-
         return ret
     
     def get_code_by_name(self, code_name):

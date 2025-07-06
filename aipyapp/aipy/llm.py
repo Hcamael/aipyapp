@@ -8,7 +8,7 @@ from rich.text import Text
 
 from .. import T
 from .plugin import event_bus
-from ..llm import CLIENTS, ChatMessage
+from ..llm import CLIENTS, ChatMessage, BaseClient
 
 class ChatHistory:
     def __init__(self):
@@ -31,8 +31,8 @@ class ChatHistory:
     def get_usage(self):
         return iter(row.usage for row in self.messages if row.role == "assistant")
     
-    def get_summary(self):
-        summary = {'time': 0, 'input_tokens': 0, 'output_tokens': 0, 'total_tokens': 0}
+    def get_summary(self) -> dict[str, float|int]:
+        summary: dict[str, float|int] = {'time': 0, 'input_tokens': 0, 'output_tokens': 0, 'total_tokens': 0}
         summary.update(dict(self._total_tokens))
         summary['rounds'] = sum(1 for row in self.messages if row.role == "assistant")
         return summary
@@ -72,7 +72,6 @@ class LineReceiver(list):
 
 class LiveManager:
     def __init__(self, name, quiet=False):
-        self.live = None
         self.name = name
         self.lr = LineReceiver()
         self.lr_reason = LineReceiver()
@@ -92,7 +91,7 @@ class LiveManager:
     
     def __enter__(self):
         if self.quiet: return self
-        self.live = Live(auto_refresh=False, vertical_overflow='crop', transient=True)
+        self.live: 'Live' = Live(auto_refresh=False, vertical_overflow='crop', transient=True)
         self.live.__enter__()
         return self
 
@@ -139,7 +138,6 @@ class ClientManager(object):
     def __init__(self, settings):
         self.clients = {}
         self.default = None
-        self.current = None
         self.log = logger.bind(src='client_manager')
         self.names = self._init_clients(settings)
 
@@ -186,7 +184,7 @@ class ClientManager(object):
             self.default = self.clients[name]
             names['default'] = name
 
-        self.current = self.default
+        self.current: 'BaseClient' = self.default
         return names
 
     def __len__(self):
@@ -221,7 +219,7 @@ class ClientManager(object):
 class Client:
     def __init__(self, manager: ClientManager):
         self.manager = manager
-        self.current = manager.current
+        self.current: 'BaseClient' = manager.current
         self.history = ChatHistory()
         self.log = logger.bind(src='client', name=self.current.name)
 
@@ -237,8 +235,8 @@ class Client:
             return True
         return False
     
-    def __call__(self, instruction, *, system_prompt=None, quiet=False):
-        client = self.current
+    def __call__(self, instruction, *, system_prompt=None, quiet=False) -> 'ChatMessage':
+        client: 'BaseClient' = self.current
         stream_processor = LiveManager(client.name, quiet=quiet)
         msg = client(self.history, instruction, system_prompt=system_prompt, stream_processor=stream_processor)
         if msg:

@@ -2,9 +2,8 @@
 # -*- coding: utf-8 -*-
 
 import os
-import json
 from pathlib import Path
-from collections import deque, namedtuple
+from collections import namedtuple
 
 from loguru import logger
 
@@ -12,20 +11,16 @@ from .. import T
 from .task import Task
 from .plugin import PluginManager
 from .prompt import get_system_prompt
-from .diagnose import Diagnose
 from .llm import ClientManager
-from .config import PLUGINS_DIR, TIPS_DIR, get_mcp, get_tt_api_key, get_tt_aio_api
+from .config import PLUGINS_DIR, TIPS_DIR, get_tt_api_key, get_tt_aio_api
 from .tips import TipsManager
 
 class TaskManager:
-    MAX_TASKS = 16
-
-    def __init__(self, settings, console, gui=False):
+    def __init__(self, settings, console):
         self.settings = settings
         self.console = console
-        self.tasks = deque(maxlen=self.MAX_TASKS)
+        self.tasks: dict[str, Task] = {}
         self.envs = {}
-        self.gui = gui
         self.log = logger.bind(src='taskmgr')
         self.api_prompt = None
         self.config_files = settings._loaded_files
@@ -38,23 +33,21 @@ class TaskManager:
             self.cwd = workdir
         else:
             self.cwd = Path.cwd()
-        self.mcp = get_mcp(settings.get('_config_dir'))
         self._init_environ()
         self.tt_api_key = get_tt_api_key(settings)
         self._init_api()
-        self.diagnose = Diagnose.create(settings)
         self.client_manager = ClientManager(settings)
         self.tips_manager = TipsManager(TIPS_DIR)
         self.tips_manager.load_tips()
         self.tips_manager.use(settings.get('role', 'aipy'))
-        self.task = None
+        self.task: 'Task|None' = None
 
     @property
-    def workdir(self):
+    def workdir(self) -> str:
         return str(self.cwd)
 
-    def get_tasks(self):
-        return list(self.tasks)
+    def get_tasks(self) -> dict[str, Task]:
+        return self.tasks
 
     def list_llms(self):
         return self.client_manager.to_records()
@@ -69,29 +62,21 @@ class TaskManager:
     def list_tasks(self):
         rows = []
         for task in self.tasks:
-            rows.append(task.to_record())
+            rows.append(task)
         return rows
     
-    def get_task_by_id(self, task_id):
-        for task in self.tasks:
-            if task.task_id == task_id:
-                return task
+    def get_task_by_name(self, username: str) -> Task | None:
+        if username in self.tasks:
+            return self.tasks[username]
         return None
 
-    def get_update(self, force=False):
-        return self.diagnose.check_update(force)
-
-    def use(self, llm=None, role=None, task=None):
+    def use(self, llm=None, role=None):
         if llm:
             ret = self.client_manager.use(llm)
             self.console.print(f"LLM: {'[green]Ok[/green]' if ret else '[red]Error[/red]'}")
         if role:
             ret = self.tips_manager.use(role)
             self.console.print(f"Role: {'[green]Ok[/green]' if ret else '[red]Error[/red]'}")
-        if task:
-            task = self.get_task_by_id(task)
-            self.console.print(f"Task: {'[green]Ok[/green]' if task else '[red]Error[/red]'}")
-            self.task = task
 
     def _init_environ(self):
         envs = self.settings.get('environ', {})
@@ -127,25 +112,29 @@ class TaskManager:
 
         self.api_prompt = "\n".join(lines)
 
-    def new_task(self):
-        if self.task:
-            task = self.task
-            self.task = None
-            self.log.info('Reload task', task_id=task.task_id)
+    def end_user_task(self, username: str):
+        if username in self.tasks:
+            task = self.tasks[username]
+            task.done()
+            del self.tasks[username]
+            self.log.debug(f'{username} task ended and removed')
+        else:
+            self.log.warning(f'Task for {username} not found')
+
+    def get_task_by_username(self, username: str) -> Task:
+        if username in self.tasks:
+            task = self.tasks[username]
+            self.task = task
+            self.log.debug(f'{username} get task')
             return task
+        task = self.new_task(username)
+        self.task = task
+        return task
 
-        with_mcp = self.settings.get('mcp', {}).get('enable', True)
+    def new_task(self, username: str) -> Task:
+        system_prompt = get_system_prompt(self.tips_manager.current_tips, self.api_prompt, self.settings.get('system_prompt'))
 
-        mcp_tools = ""
-        if self.mcp and with_mcp:
-            mcp_tools = self.mcp.get_tools_prompt()
-        system_prompt = get_system_prompt(self.tips_manager.current_tips, self.api_prompt, self.settings.get('system_prompt'), mcp_tools=mcp_tools)
-
-        task = Task(self)
-        task.client = self.client_manager.Client()
-        task.diagnose = self.diagnose
-        task.system_prompt = system_prompt
-        task.mcp = self.mcp if with_mcp else None
-        self.tasks.append(task)
-        self.log.info('New task created', task_id=task.task_id)
+        task = Task(self, client=self.client_manager.Client(), system_prompt=system_prompt)
+        self.tasks[username] = task
+        self.log.debug(f'{username} New task created')
         return task

@@ -9,7 +9,6 @@ from .cmd_help import HelpCommand
 from .cmd_llm import LLMCommand
 from .cmd_use import UseCommand
 from .cmd_env import EnvCommand
-from .cmd_task import TaskCommand
 from .cmd_mcp import MCPCommand
 
 from loguru import logger
@@ -17,7 +16,7 @@ from rich import print
 from prompt_toolkit.completion import Completer, Completion, NestedCompleter
 from prompt_toolkit.key_binding import KeyBindings
 
-COMMANDS = [InfoCommand, UseCommand, EnvCommand, LLMCommand, TaskCommand, MCPCommand, HelpCommand]
+COMMANDS = [InfoCommand, UseCommand, EnvCommand, LLMCommand, MCPCommand, HelpCommand]
 
 class CommandManager(Completer):
     def __init__(self, tm):

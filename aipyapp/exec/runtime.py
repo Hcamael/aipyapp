@@ -52,10 +52,10 @@ class BaseRuntime(ABC):
     def get_env(self, name, default=None, *, desc=None):
         pass
     
-    @abstractmethod
-    def display(self, path=None, url=None):
-        pass
+    # @abstractmethod
+    # def display(self, path=None, url=None):
+    #     pass
 
-    @abstractmethod
-    def input(self, prompt=''):
-        pass
+    # @abstractmethod
+    # def input(self, prompt=''):
+    #     pass
