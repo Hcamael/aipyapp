@@ -35,6 +35,7 @@ class CliRunner:
                     self.console.print(f"[green]{result[key]}")
                 elif key == "stderr":
                     self.console.print(f"[red]{result[key]}")
+        print(result)
         
 
 def main(args):
