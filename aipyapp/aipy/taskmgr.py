@@ -10,7 +10,6 @@ from loguru import logger
 from .. import T
 from .task import Task
 from .plugin import PluginManager
-from .prompt import get_system_prompt
 from .llm import ClientManager
 from .config import PLUGINS_DIR, TIPS_DIR, get_tt_api_key, get_tt_aio_api
 from .tips import TipsManager
@@ -132,9 +131,7 @@ class TaskManager:
         return task
 
     def new_task(self, username: str) -> Task:
-        system_prompt = get_system_prompt(self.tips_manager.current_tips, self.api_prompt, self.settings.get('system_prompt'))
-
-        task = Task(self, client=self.client_manager.Client(), system_prompt=system_prompt)
+        task = Task(self, client=self.client_manager.Client())
         self.tasks[username] = task
         self.log.debug(f'{username} New task created')
         return task

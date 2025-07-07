@@ -3,6 +3,7 @@
 
 import os
 import json
+from typing import TYPE_CHECKING
 import uuid
 import time
 from pathlib import Path
@@ -24,11 +25,13 @@ from ..exec import Runner
 from .runtime import Runtime
 from .plugin import event_bus
 from .utils import get_safe_filename
-from .blocks import CodeBlocks, CodeBlock
+from .blocks import CodeBlocks
 from .interface import Stoppable
-from .taskmgr import TaskManager
 from .llm import Client
 from . import prompt
+
+if TYPE_CHECKING:
+    from .taskmgr import TaskManager
 
 CONSOLE_WHITE_HTML = read_text(__respkg__, "console_white.html")
 CONSOLE_CODE_HTML = read_text(__respkg__, "console_code.html")
@@ -36,7 +39,7 @@ CONSOLE_CODE_HTML = read_text(__respkg__, "console_code.html")
 class Task(Stoppable):
     MAX_ROUNDS = 16
 
-    def __init__(self, manager: 'TaskManager', client: 'Client', system_prompt: 'str'):
+    def __init__(self, manager: 'TaskManager', client: 'Client'):
         super().__init__()
         self.manager = manager
         self.task_id = uuid.uuid4().hex
@@ -47,10 +50,11 @@ class Task(Stoppable):
         self.max_rounds = self.settings.get('max_rounds', self.MAX_ROUNDS)
         self.cwd = manager.cwd / self.task_id
         self.client: 'Client' = client
-        self.system_prompt: 'str' = system_prompt
         self.code_blocks = CodeBlocks(self.console)
         self.runtime: Runtime = Runtime(self)
         self.runner: Runner = Runner(self.runtime)
+        self.system_prompt = prompt.get_system_prompt(manager.tips_manager.current_tips, manager.api_prompt, self.runtime.get_prompt(), manager.settings.get('system_prompt'))
+        self.system_prompt += f"\n当前目录为：{self.cwd}\n**写文件时，请使用绝对路径**"
         self.start_time = None
         self.done_time = None
         self.instruction = None
@@ -130,7 +134,7 @@ class Task(Stoppable):
         ret: dict = self.code_blocks.parse(markdown)
         if not ret:
             self.log.error('LLM 不太行，返回了错误的格式')
-            return status, ""
+            return status, markdown
         
         json_str = json.dumps(ret, ensure_ascii=False, indent=2, default=str)
         self.box(f"✅ {T('Message parse result')}", json_str, lang="json")
@@ -149,7 +153,7 @@ class Task(Stoppable):
             msg = self.process_code_reply(ret['exec_blocks'])
             status = True
         else:
-            msg = ""
+            msg = "还未匹配该情况"
         return status, msg
 
     def print_code_result(self, block, result, title=None):
@@ -167,6 +171,7 @@ class Task(Stoppable):
             event_bus('exec', block)
             self.console.print(f"⚡ {T('Start executing code block')}: {block.name}", style='dim white')
             result = self.runner(block)
+            self.console.print(f"⚡ test: {result}", style='dim white')
             self.print_code_result(block, result)
             result['block_name'] = block.name
             results.append(result)

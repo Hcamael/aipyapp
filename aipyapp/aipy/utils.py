@@ -65,7 +65,7 @@ def get_safe_filename(input_str, extension=None, max_length=16):
     counter = 1
 
     while os.path.exists(filename):
-        filename = f"{base_name}_{counter}{extension}"
+        filename = f"{base_name}_{counter}{extension}" if extension else f"{base_name}_{counter}"
         counter += 1
 
     return filename

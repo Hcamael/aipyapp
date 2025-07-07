@@ -124,12 +124,13 @@ class LiveManager:
         while len(self.display_lines) > self.max_lines:
             self.display_lines.pop(0)
         content = '\n'.join(self.display_lines)
-        self.live.update(Text(content, style="dim white"), refresh=True)
+        if not self.quiet:
+            self.live.update(Text(content, style="dim white"), refresh=True)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         if self.lr.buffer:
             self.process_chunk('\n')
-        if self.live:
+        if not self.quiet and self.live:
             self.live.__exit__(exc_type, exc_val, exc_tb)
 
 class ClientManager(object):

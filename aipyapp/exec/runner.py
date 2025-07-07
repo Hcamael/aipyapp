@@ -6,7 +6,11 @@ import json
 import traceback
 from pathlib import Path
 from io import StringIO
-import webbrowser
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ..aipy.blocks import CodeBlock
+    from ..aipy.runtime import Runtime
 
 from loguru import logger
 
@@ -20,21 +24,6 @@ import random
 import traceback
 import warnings
 warnings.filterwarnings("ignore")
-
-__result__ = {}
-__storage__ = {}
-
-def set_result(**kwargs):
-    global __result__
-    __result__.update(kwargs)
-
-def set_persistent_state(**kwargs):
-    global __storage__
-    __storage__.update(kwargs)
-
-def get_persistent_state(key):
-    global __storage__
-    return __storage__.get(key)
 """
 
 def is_json_serializable(obj):
@@ -60,7 +49,7 @@ def diff_dicts(dict1, dict2):
 
 class Runner():
     def __init__(self, runtime):
-        self.runtime = runtime
+        self.runtime: 'Runtime' = runtime
         self.history = []
         self.log = logger.bind(src='runner')
         self._globals = {'aipyrun': runtime, '__name__': '__main__'}
@@ -73,17 +62,14 @@ class Runner():
     def globals(self):
         return self._globals
     
-    def _exec_python_block(self, block, params=None):
+    def _exec_python_block(self, block: 'CodeBlock') -> dict:
         old_stdout, old_stderr = sys.stdout, sys.stderr
         captured_stdout = StringIO()
         captured_stderr = StringIO()
         sys.stdout, sys.stderr = captured_stdout, captured_stderr
         result = {}
-        env = self.runtime.envs.copy()
-        session = self._globals['__storage__'].copy()
+        self.runtime.current_state.clear()
         gs = self._globals.copy()
-        gs['__result__'].clear()
-        gs['__params__'] = params
         try:
             exec(block.code, gs)
         except (SystemExit, Exception) as e:
@@ -98,44 +84,33 @@ class Runner():
         s = captured_stderr.getvalue().strip()
         if s: result['stderr'] = s if is_json_serializable(s) else '<filtered: cannot json-serialize>'        
 
-        vars = gs.get('__result__')
-        if vars:
-            #self._globals['__retval__'] = vars
-            result['result'] = self.filter_result(vars)
+        if self.runtime.current_state:
+            result['result'] = self.filter_result(self.runtime.current_state)
 
-        history = {}
-        diff = diff_dicts(env, self.runtime.envs)
-        if diff:
-            history['env'] = diff
-        diff = diff_dicts(gs['__storage__'], session)
-        if diff:
-            history['session'] = diff
-
-        return result, history
+        return result
 
     def __call__(self, block):
         self.log.info(f'Exec: {block}')
         lang = block.get_lang()
+        history = {}
         if lang == 'python':
-            result, history = self._exec_python_block(block)
+            result = self._exec_python_block(block)
         elif lang == 'html':
-            result, history = self._exec_html_block(block)
+            result = self._exec_html_block(block)
         else:
             result = {'stderr': f'Exec: Ignore unsupported block type: {lang}'}
-            history = {}
-
         history['block_name'] = block.name
         history['result'] = result
         self.history.append(history)
         return result.copy()
         
-    def _exec_html_block(self, block):
+    def _exec_html_block(self, block) -> dict:
         cwd = self.runtime.task.cwd
         path = cwd / Path(block.path)
         path.write_text(block.code, encoding='utf-8')
         self.runtime.upload_file(str(path))
         result = {'stdout': 'OK'}
-        return result, {}
+        return result
 
     def filter_result(self, vars):
         if isinstance(vars, dict):

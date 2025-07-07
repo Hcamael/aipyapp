@@ -20,9 +20,9 @@ AIPY_PROMPT = """
 
 ## 多行代码块标记
 1. 代码块必须用一对HTML注释标记包围，格式如下：
-   - 代码开始：<!-- Block-Start: {"name": "代码块名称", "version": 数字版本号如1/2/3, "path": "该代码块的可选文件路径"} -->
+   - 代码开始：<!-- Block-Start: {{"name": "代码块名称", "version": 数字版本号如1/2/3, "path": "该代码块的可选文件路径"}} -->
    - 代码本体：用 Markdown 代码块包裹（如 ```python 或 ```html 等)。
-   - 代码结束：<!-- Block-End: { "name": 和Block-Start中的name一致 } -->
+   - 代码结束：<!-- Block-End: {{ "name": 和Block-Start中的name一致 }} -->
 
 2. 多个代码块可以使用同一个name，但版本必须不同。版本最高的代码块会被认为是最新的有效版本。
 
@@ -31,15 +31,15 @@ AIPY_PROMPT = """
 4. 同一个输出消息里可以定义多个代码块。
 
 5. **正确示例：**
-<!-- Block-Start: {"name": "abc123", "version": 1, "path": "main.py"} -->
+<!-- Block-Start: {{"name": "abc123", "version": 1, "path": "main.py"}} -->
 ```python
 print("hello world")
 ```
-<!-- Block-End: {"name": "abc123"} -->
+<!-- Block-End: {{"name": "abc123"}} -->
 
 ## 单行命令标记
 1. 每次输出中只能包含 **一个** `Cmd-Exec` 标记，用于执行可执行代码块来完成用户的任务：
-   - 格式：<!-- Cmd-Exec: {"name": "要执行的代码块 name"} -->
+   - 格式：<!-- Cmd-Exec: {{"name": "要执行的代码块 name"}} -->
    - 如果不需要执行任何代码，则不要添加 `Cmd-Exec`。
    - 要执行的代码块必需先使用前述多行代码块标记格式单独定义。
    - 如果代码块有多个版本，执行代码块的最新版本。
@@ -48,11 +48,11 @@ print("hello world")
 2. Cmd-Exec 只能用来执行 Python 代码块，不能执行其它语言(如 JSON/CSS/JavaScript等)的代码块。
 
 3. **正确示例：**
-<!-- Cmd-Exec: {"name": "abc123"} -->
+<!-- Cmd-Exec: {{"name": "abc123"}} -->
 
 ## 其它   
 1. 所有 JSON 内容必须写成**单行紧凑格式**，例如：
-   <!-- Block-Start: {"name": "abc123", "path": "main.py", "version": 1} -->
+   <!-- Block-Start: {{"name": "abc123", "path": "main.py", "version": 1}} -->
 
 2. 禁止输出代码内容重复的代码块，通过代码块name来引用之前定义过的代码块。
 
@@ -71,41 +71,8 @@ print("hello world")
 在标准 Python 运行环境的基础上额外增加了下述功能：
 - 一些预装的第三方包
 - 全局 `aipyrun` 对象
-- `set_state` 函数：设置当前代码块的执行结果状态，或保存数据到会话中。
-- `get_persistent_state` 函数：获取会话中持久化的状态值。
 
 生成 Python 代码时可以直接使用这些额外功能。
-
-## `set_result` 函数
-- 定义: `set_result(**kwargs)`
-- 参数: 
-  - **kwargs: 状态键值对，类型可以为任意Python基本数据类型，如字符串/数字/列表/字典等。
-- 用途: 设置当前代码块的运行结果值，作为当前代码块的执行结果反馈。
-- 使用示例：
-```python
-set_result(success=False, reason="Error: 发生了错误") # 设置当前代码块的执行结果状态
-set_result(success=True, data={"name": "John", "age": 30}) # 设置当前代码块的执行结果状态
-```
-
-## `set_persistent_state` 函数
-- 定义: `set_persistent_state(**kwargs)`
-- 参数: 
-  - **kwargs: 状态键值对，类型可以为任意Python基本数据类型，如字符串/数字/列表/字典等。
-- 用途: 设置会话中持久化的状态值。
-- 使用示例：
-```python
-set_persistent_state(data={"name": "John", "age": 30}) # 保存数据到会话中
-```
-
-## `get_persistent_state` 函数
-- 类型: 函数。
-- 参数: 
-  - key: 状态键名
-- 用途: 获取会话中持久化的状态值。不存在时返回 None。
-- 使用示例：
-```python
-data = get_persistent_state("data")
-```
 
 ## 预装的第三方包
 下述第三方包可以无需安装直接使用：
@@ -119,57 +86,17 @@ data = get_persistent_state("data")
 import platform
 
 system = platform.system().lower()
-font_options = {
+font_options = {{
     'windows': ['Microsoft YaHei', 'SimHei'],
     'darwin': ['Kai', 'Hei'],
     'linux': ['Noto Sans CJK SC', 'WenQuanYi Micro Hei', 'Source Han Sans SC']
-}
+}}
 ```
 
 ## 全局 aipyrun 对象
 aipyrun 对象提供一些协助代码完成任务的方法。
 
-### `aipyrun.get_block_by_name` 方法
-- 功能: 获取指定 name 的最新版本的代码块对象
-- 定义: `get_block_by_name(code_block_name)`
-- 参数: `code_block_name` 为代码块的名称
-- 返回值: 代码块对象，如果不存在则返回 None。
-
-返回的代码块对象包含以下属性：
-- `name`: 代码块名称
-- `version`: 代码块的版本号
-- `lang`: 代码块的编程语言
-- `code`: 代码块的代码内容
-- `path`: 代码块的文件路径（如果之前未指定则为None）
-
-可以修改代码块的 `code` 属性来更新代码内容。
-
-### aipyrun.install_packages 方法
-- 功能: 申请安装完成任务必需的额外模块
-- 参数: 一个或多个 PyPi 包名，如：'httpx', 'requests>=2.25'
-- 返回值:True 表示成功, False 表示失败
-
-示例如下：
-```python
-if aipyrun.install_packages('httpx', 'requests>=2.25'):
-    import httpx
-```
-
-### aipyrun.get_env 方法
-- 功能: 获取代码运行需要的环境变量，如 API-KEY 等。
-- 定义: get_env(name, default=None, *, desc=None)
-- 参数: 第一个参数为需要获取的环境变量名称，第二个参数为不存在时的默认返回值，第三个可选字符串参数简要描述需要的是什么。
-- 返回值: 环境变量值，返回 None 或空字符串表示未找到。
-
-示例如下：
-```python
-env_name = '环境变量名称'
-env_value = aipyrun.get_env(env_name, "No env", desc='访问API服务需要')
-if not env_value:
-    print(f"Error: {env_name} is not set", file=sys.stderr)
-else:
-    print(f"{env_name} is available")
-```
+{aipyrun_prompt}
 
 # 代码执行结果反馈
 Python代码块的执行结果会通过JSON对象反馈给你，对象包括以下属性：
@@ -203,18 +130,25 @@ API_PROMPT = """
 {apis}
 """
 
-def get_system_prompt(tips, api_prompt, user_prompt=None) -> str:
+def get_system_prompt(tips, api_prompt, aipyrun_prompt, user_prompt=None) -> str:
     if user_prompt:
         user_prompt = user_prompt.strip()
     prompts = {
         'role_prompt': user_prompt or tips.role.detail,
-        'aipy_prompt': AIPY_PROMPT,
+        'aipy_prompt': AIPY_PROMPT.format(aipyrun_prompt=aipyrun_prompt),
         'tips_prompt': '',
         'api_prompt': API_PROMPT.format(apis=api_prompt)
     }
     if not user_prompt and len(tips) > 0:
         prompts['tips_prompt'] = TIPS_PROMPT.format(tips=str(tips))
     return SYSTEM_PROMPT_TEMPLATE.format(**prompts)
+
+def get_results_prompt(results):
+    prompt = OrderedDict()
+    prompt['message'] = "These are the execution results of the code block/s automatically returned in the order of execution by the runtime environment."
+    prompt['source'] = "Runtime Environment"
+    prompt['results'] = results
+    return prompt
 
 def get_task_prompt(instruction):
     prompt = OrderedDict()
@@ -236,13 +170,6 @@ def get_task_prompt(instruction):
     constraints['reply_language'] = "Now, use the exact language of the `task` field for subsequent responses"
     constraints['file_creation_path'] = 'current_directory'
     prompt['constraints'] = constraints
-    return prompt
-
-def get_results_prompt(results):
-    prompt = OrderedDict()
-    prompt['message'] = "These are the execution results of the code block/s automatically returned in the order of execution by the runtime environment."
-    prompt['source'] = "Runtime Environment"
-    prompt['results'] = results
     return prompt
 
 def get_chat_prompt(msg, task):

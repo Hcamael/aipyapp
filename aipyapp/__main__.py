@@ -28,6 +28,7 @@ def parse_args():
     parser.add_argument('-g', '--gui', default=False, action='store_true', help="GUI mode")
     parser.add_argument('--debug', default=False, action='store_true', help="Debug mode")
     parser.add_argument('-f', '--fetch-config', default=False, action='store_true', help="login to trustoken and fetch token config")
+    parser.add_argument('--aibot', default=False, action='store_true', help="Run AI Bot CLI mode")
     parser.add_argument('cmd', nargs='?', default=None, help="Task to execute, e.g. 'Who are you?'")
     return parser.parse_args()
 
@@ -37,7 +38,7 @@ def ensure_pkg(pkg):
     except:
         import subprocess
 
-        cp = subprocess.run([sys.executable, "-m", "pip", "install", pkg])
+        cp = subprocess.run(["uv", "add", pkg])
         assert cp.returncode == 0
 
 def mainw():
@@ -48,7 +49,9 @@ def mainw():
 
 def main():
     args = parse_args()
-    if args.python:
+    if args.aibot:
+        from .cli.cli_aibot import main as aipy_main
+    elif args.python:
         from .cli.cli_python import main as aipy_main
     elif args.ipython:
         ensure_pkg('ipython')
