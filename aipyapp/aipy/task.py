@@ -3,6 +3,7 @@
 
 import os
 import json
+import re
 from typing import TYPE_CHECKING
 import uuid
 import time
@@ -27,7 +28,7 @@ from .plugin import event_bus
 from .utils import get_safe_filename
 from .blocks import CodeBlocks
 from .interface import Stoppable
-from .llm import Client
+from .llm import Client, ChatHistory
 from . import prompt
 
 if TYPE_CHECKING:
@@ -55,6 +56,7 @@ class Task(Stoppable):
         self.runner: Runner = Runner(self.runtime)
         self.system_prompt = prompt.get_system_prompt(manager.tips_manager.current_tips, manager.api_prompt, self.runtime.get_prompt(), manager.settings.get('system_prompt'))
         self.system_prompt += f"\n当前目录为：{self.cwd}\n**写文件时，请使用绝对路径**"
+        self.cmd_exec_pattern = r'<!--\s*Cmd-Exec:\s*{\s*"name"\s*:\s*"([^"]+)"\s*}\s*-->'
         self.start_time = None
         self.done_time = None
         self.instruction = None
@@ -171,7 +173,9 @@ class Task(Stoppable):
             event_bus('exec', block)
             self.console.print(f"⚡ {T('Start executing code block')}: {block.name}", style='dim white')
             result = self.runner(block)
-            self.console.print(f"⚡ test: {result}", style='dim white')
+            if "stderr" in result or "errstr" in result:
+                self.code_blocks.blocks.pop(block.name)
+                self.code_blocks.history.remove(block)
             self.print_code_result(block, result)
             result['block_name'] = block.name
             results.append(result)
@@ -192,6 +196,43 @@ class Task(Stoppable):
             content = Align(content, align=align)
         
         self.console.print(Panel(content, title=title))
+
+    def isInCodeBlock(self, cmd_id):
+        self.console.print(f"⚡ blocks: {self.code_blocks.blocks.keys()}", style='dim white')
+        for bid in self.code_blocks.blocks:
+            if bid == cmd_id:
+                return True
+        return False
+
+    # 删除错误的历史记录
+    def clean(self):
+        self.console.print(f"⚡ clean history", style='dim white')
+        history: 'ChatHistory' = self.client.history
+        if len(history.messages) > 3:
+            index = -3
+            while True:
+                if history.messages[index].role == "assistant":
+                    content = history.messages[index].content
+                    # 使用正则表达式匹配 Cmd-Exec 注释
+                    match = re.search(self.cmd_exec_pattern, content)
+                    if match:
+                        cmd_id = match.group(1)  # 获取匹配到的 id 值
+                        # 如果id不在code_block中，则表明是发生错误的代码，可以从历史记录中删除
+                        if not self.isInCodeBlock(cmd_id):
+                            # 删除assistant错误部分
+                            history.messages.pop(index)
+                            # 删除user错误部分
+                            history.messages.pop(index + 1)
+                            index += 1
+                            continue
+                elif history.messages[index].role == "user":
+                    # 如果用户消息不是最初任务，则到达了用户提问的地方
+                    msg = history.messages[index].content
+                    if msg.startswith('{"task"'):
+                        break
+                elif history.messages[index].role == "system":
+                    break
+                index -= 1
 
     def print_summary(self):
         history = self.client.history
@@ -247,6 +288,7 @@ class Task(Stoppable):
                 break
 
         self.print_summary()
+        self.clean()
         self._auto_save()
         self.log.info('Loop done', rounds=rounds)
         return response

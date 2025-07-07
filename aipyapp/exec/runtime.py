@@ -42,8 +42,8 @@ class BaseRuntime(ABC):
 - 用途: 设置当前代码块的运行结果值，作为当前代码块的执行结果反馈。
 - 使用示例：
 ```python
-set_result(success=False, reason="Error: 发生了错误") # 设置当前代码块的执行结果状态
-set_result(success=True, data={"name": "John", "age": 30}) # 设置当前代码块的执行结果状态
+aipyrun.set_result(success=False, reason="Error: 发生了错误") # 设置当前代码块的执行结果状态
+aipyrun.set_result(success=True, data={"name": "John", "age": 30}) # 设置当前代码块的执行结果状态
 ```
         '''
         self.current_state.update(kwargs)
@@ -56,20 +56,20 @@ set_result(success=True, data={"name": "John", "age": 30}) # 设置当前代码�
 - 用途: 设置会话中持久化的状态值。
 - 使用示例：
 ```python
-set_persistent_state(data={"name": "John", "age": 30}) # 保存数据到会话中
+aipyrun.set_persistent_state(data={"name": "John", "age": 30}) # 保存数据到会话中
 ```
         '''
         self.session.update(kwargs)
 
     def get_persistent_state(self, key: str) -> Any:
-        '''### `get_persistent_state` 函数
+        '''### `aipyrun.get_persistent_state` 函数
 - 类型: 函数。
 - 参数: 
   - key: 状态键名
 - 用途: 获取会话中持久化的状态值。不存在时返回 None。
 - 使用示例：
 ```python
-data = get_persistent_state("data")
+data = aipyrun.get_persistent_state("data")
 ```
         '''
         return self.session.get(key)

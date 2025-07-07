@@ -94,7 +94,7 @@ font_options = {{
 ```
 
 ## 全局 aipyrun 对象
-aipyrun 对象提供一些协助代码完成任务的方法。
+aipyrun为全局对象，不需要额外导入，该对象提供一些协助代码完成任务的方法。
 
 {aipyrun_prompt}
 
