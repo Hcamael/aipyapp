@@ -59,7 +59,7 @@ def _apply_streamable_http_patch():
         logger.warning(f"Failed to apply StreamableHTTP patch: {e}")
 
 # 在模块加载时应用补丁
-_apply_streamable_http_patch()
+# _apply_streamable_http_patch()
 
 
 # 预编译正则表达式
