@@ -11,7 +11,6 @@ import tomli_w
 
 from .. import __respath__, T
 from .trustoken import TrustToken
-from .libmcp import MCPToolManager
 
 __PACKAGE_NAME__ = "aipyapp"
 
@@ -140,14 +139,14 @@ def is_valid_api_key(api_key):
     return bool(re.match(pattern, api_key))
 
 
-def get_mcp(config_dir=None):
+def get_mcp_config_file(config_dir=None):
     mcp_config_file = get_config_file_path(
         config_dir, MCP_CONFIG_FILE_NAME, create=False
     )
     # exists and not empty
     if not mcp_config_file.exists() or mcp_config_file.stat().st_size == 0:
         return None
-    return MCPToolManager(mcp_config_file)
+    return mcp_config_file
 
 
 def get_tt_api_key(settings=None) -> str:

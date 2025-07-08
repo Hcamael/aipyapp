@@ -8,7 +8,7 @@ from term_image.image import from_file, from_url
 from . import utils
 from .plugin import event_bus
 from .. import T
-from ..exec import BaseRuntime
+from ..exec import PythonRuntime
 
 def restore_output(func):
     @wraps(func)
@@ -22,7 +22,7 @@ def restore_output(func):
             sys.stdout, sys.stderr = old_stdout, old_stderr
     return wrapper
 
-class Runtime(BaseRuntime):
+class CliPythonRuntime(PythonRuntime):
     def __init__(self, task):
         super().__init__(task.envs)
         self.gui = task.gui

@@ -30,7 +30,6 @@ class MCPCommand(BaseCommand):
         parser.add_argument('server', nargs='?', default=None, help=T('MCP server name'))
 
     def execute(self, args):
-        print(args.raw_args)
         raw_args = args.raw_args
         if not raw_args:
             return

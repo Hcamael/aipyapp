@@ -3,14 +3,44 @@
 import sys
 import subprocess
 from abc import ABC, abstractmethod
+from typing import Any
 
 from loguru import logger
 
-class BaseRuntime(ABC):
+class PythonRuntime(ABC):
     def __init__(self, envs=None):
         self.envs = envs or {}
         self.packages = set()
+        self.session = {}
+        self.block_states = {}
+        self.current_state = {}
+        self.block = None
         self.log = logger.bind(src='runtime')
+
+    def start_block(self, block):
+        """开始一个新的代码块执行"""
+        self.current_state = {}
+        self.block_states[block.name] = self.current_state
+        self.block = block
+
+    def set_state(self, success: bool, **kwargs) -> None:
+        """设置当前代码块的执行状态"""
+        self.current_state['success'] = success
+        self.current_state.update(kwargs)
+
+    def get_block_state(self, block_name: str) -> Any:
+        """获取上一个代码块的状态值"""
+        return self.block_states.get(block_name)
+    
+    def set_persistent_state(self, **kwargs) -> None:
+        """设置在整个会话中持久化的状态值"""
+        self.session.update(kwargs)
+        self.block.add_dep('set_state', list(kwargs.keys()))
+
+    def get_persistent_state(self, key: str) -> Any:
+        """获取会话中保存的持久化的状态值"""
+        self.block.add_dep('get_state', key)
+        return self.session.get(key)
 
     def set_env(self, name, value, desc):
         self.envs[name] = (value, desc)
@@ -45,17 +75,17 @@ class BaseRuntime(ABC):
         return self.ensure_packages(*reqs, **kwargs)
     
     @abstractmethod
-    def install_packages(self, packages):
+    def install_packages(self, *packages: str):
         pass
 
     @abstractmethod
-    def get_env(self, name, default=None, *, desc=None):
+    def get_env(self, name: str, default: Any = None, *, desc: str = None) -> Any:
         pass
     
     @abstractmethod
-    def display(self, path=None, url=None):
+    def display(self, path: str = None, url: str = None) -> None:
         pass
 
     @abstractmethod
-    def input(self, prompt=''):
+    def input(self, prompt: str = '') -> str:
         pass

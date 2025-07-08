@@ -20,8 +20,8 @@ from rich.console import Console, Group
 from rich.markdown import Markdown
 
 from .. import T, __respkg__
-from ..exec import Runner
-from .runtime import Runtime
+from ..exec import BlockExecutor
+from .runtime import CliPythonRuntime
 from .plugin import event_bus
 from .utils import get_safe_filename
 from .blocks import CodeBlocks, CodeBlock
@@ -53,9 +53,10 @@ class Task(Stoppable):
         self.start_time = None
         self.done_time = None
         self.code_blocks = CodeBlocks(self.console)
-        self.runtime = Runtime(self)
-        self.runner = Runner(self.runtime)
-        
+        self.runtime = CliPythonRuntime(self)
+        self.runner = BlockExecutor()
+        self.runner.set_python_runtime(self.runtime)
+
     def to_record(self):
         TaskRecord = namedtuple('TaskRecord', ['task_id', 'start_time', 'done_time', 'instruction'])
         start_time = datetime.fromtimestamp(self.start_time).strftime('%H:%M:%S') if self.start_time else '-'

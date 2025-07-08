@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-from collections import OrderedDict
-import platform
-import locale
 import os
 from datetime import date
+from collections import OrderedDict
+
+from .utils import get_system_context
 
 SYSTEM_PROMPT_TEMPLATE = """
 {role_prompt}
@@ -25,7 +25,7 @@ AIPY_PROMPT = """
    - 代码本体：用 Markdown 代码块包裹（如 ```python 或 ```html 等)。
    - 代码结束：<!-- Block-End: { "name": 和Block-Start中的name一致 } -->
 
-2. 多个代码块可以使用同一个name，但版本必须不同。版本最高的代码块会被认为是最新的有效版本。
+2. 多个代码块可以使用同一个name，但版本必须不同。版本最高的代码块会被认为是最新的有效版本。注意：不要在`name` 中包含版本号。
 
 3. `path` 为代码块需要保存为的本地文件路径可以包含目录, 如果是相对路径则默认为相对当前目录或者用户指定目录.
 
@@ -46,9 +46,20 @@ print("hello world")
    - 如果代码块有多个版本，执行代码块的最新版本。
    - 可以使用 `Cmd-Exec` 执行会话历史中的所有代码块。特别地，如果需要重复执行某个任务，尽量使用 `Cmd-Exec` 执行而不是重复输出代码块。
 
-2. Cmd-Exec 只能用来执行 Python 代码块，不能执行其它语言(如 JSON/CSS/JavaScript等)的代码块。
+2. Cmd-Exec 只能用来执行下面列出的代码块类型：
+    - Python 代码块：语言类型为 `python` 的代码块。
+    - HTML 代码块：语言类型为 `html` 的代码块且代码块必需指定了 `path` 属性。
+    - Bash 代码块：语言类型为 `bash` 的代码块且代码块必需指定了 `path` 属性。
+    - PowerShell 代码块：语言类型为 `powershell` 的代码块且代码块必需指定了 `path` 属性。
+    - AppleScript 代码块：语言类型为 `applescript` 的代码块且代码块必需指定了 `path` 属性。
+    - NodeJS 代码块：语言类型为 `javascript` 的代码块且代码块必需指定了 `path` 属性。
 
-3. **正确示例：**
+3. 下述类型的代码块时应该根据客户端操作系统类型选择：
+    - Bash 代码块：仅在 Linux 和 macOS 系统上执行。
+    - PowerShell 代码块：仅在 Windows 系统上执行。
+    - AppleScript 代码块：仅在 macOS 系统上执行。
+
+4. **正确示例：**
 <!-- Cmd-Exec: {"name": "abc123"} -->
 
 ## 其它   
@@ -69,44 +80,12 @@ print("hello world")
 - 不允许执行可能导致 Python 解释器退出的指令，如 exit/quit 等函数，请确保代码中不包含这类操作。
 
 # Python运行环境描述
-在标准 Python 运行环境的基础上额外增加了下述功能：
+在标准 Python 运行环境的基础上额外增加了下述包/模块：
 - 一些预装的第三方包
-- 全局 `runtime` 对象
-- `set_state` 函数：设置当前代码块的执行结果状态，或保存数据到会话中。
-- `get_persistent_state` 函数：获取会话中持久化的状态值。
+- `aipyapp.runtime` 模块
+- 成功执行过的 Python 代码块可以通过 `from blocks import 代码块名` 导入来实现代码重用
 
 生成 Python 代码时可以直接使用这些额外功能。
-
-## `set_result` 函数
-- 定义: `set_result(**kwargs)`
-- 参数: 
-  - **kwargs: 状态键值对，类型可以为任意Python基本数据类型，如字符串/数字/列表/字典等。
-- 用途: 设置当前代码块的运行结果值，作为当前代码块的执行结果反馈。
-- 使用示例：
-```python
-set_result(success=False, reason="Error: 发生了错误") # 设置当前代码块的执行结果状态
-set_result(success=True, data={"name": "John", "age": 30}) # 设置当前代码块的执行结果状态
-```
-
-## `set_persistent_state` 函数
-- 定义: `set_persistent_state(**kwargs)`
-- 参数: 
-  - **kwargs: 状态键值对，类型可以为任意Python基本数据类型，如字符串/数字/列表/字典等。
-- 用途: 设置会话中持久化的状态值。
-- 使用示例：
-```python
-set_persistent_state(data={"name": "John", "age": 30}) # 保存数据到会话中
-```
-
-## `get_persistent_state` 函数
-- 类型: 函数。
-- 参数: 
-  - key: 状态键名
-- 用途: 获取会话中持久化的状态值。不存在时返回 None。
-- 使用示例：
-```python
-data = get_persistent_state("data")
-```
 
 ## 预装的第三方包
 下述第三方包可以无需安装直接使用：
@@ -127,10 +106,53 @@ font_options = {
 }
 ```
 
-## 全局 runtime 对象
-runtime 对象提供一些协助代码完成任务的方法。
+## `aipyapp.runtime` 模块
+通过 `from aipyapp import runtime` 来使用下述方法辅助完成任务。
 
-### `runtime.get_block_by_name` 方法
+### `set_state` 方法
+- 定义: `set_state(self, success: bool, **kwargs)`
+- 参数:
+  - success: 布尔值，表示代码块执行是否成功。
+  - **kwargs: 状态键值对，类型可以为任意Python基本数据
+- 用途：保存当前代码块的执行结果/状态。
+- 使用示例：
+```python
+runtime.set_state(True, data={"name": "John", "age": 30})
+runtime.set_state(False, error="Something went wrong")
+```
+
+### `get_block_state` 方法
+- 用途：获取指定代码块的最新状态值。
+- 定义: `get_block_state(self, block_name: str)`
+- 参数:
+  - block_name: 代码块名称
+- 返回值: 状态值，如果未设置则返回空字典，如果代码块未执行或不存在则返回 None。
+- 使用示例：
+```python
+state = runtime.get_block_state("abc123")
+```
+
+### `set_persistent_state` 方法
+- 定义: `set_persistent_state(self, **kwargs)`
+- 参数: 
+  - **kwargs: 状态键值对，类型可以为任意Python基本数据类型，如字符串/数字/列表/字典等。
+- 用途: 设置会话中持久化的状态值。
+- 使用示例：
+```python
+runtime.set_persistent_state(data={"name": "John", "age": 30}) # 保存数据到会话中
+```
+
+### `get_persistent_state` 方法
+- 定义: `get_persistent_state(key)`
+- 参数: 
+  - key: 状态键名
+- 用途: 获取会话中持久化的状态值。不存在时返回 None。
+- 使用示例：
+```python
+data = runtime.get_persistent_state("data")
+```
+
+### `get_block_by_name` 方法
 - 功能: 获取指定 name 的最新版本的代码块对象
 - 定义: `get_block_by_name(code_block_name)`
 - 参数: `code_block_name` 为代码块的名称
@@ -145,8 +167,9 @@ runtime 对象提供一些协助代码完成任务的方法。
 
 可以修改代码块的 `code` 属性来更新代码内容。
 
-### runtime.install_packages 方法
+### `install_packages` 方法
 - 功能: 申请安装完成任务必需的额外模块
+- 定义: install_packages(*packages)
 - 参数: 一个或多个 PyPi 包名，如：'httpx', 'requests>=2.25'
 - 返回值:True 表示成功, False 表示失败
 
@@ -156,7 +179,7 @@ if runtime.install_packages('httpx', 'requests>=2.25'):
     import httpx
 ```
 
-### runtime.get_env 方法
+### `get_env` 方法
 - 功能: 获取代码运行需要的环境变量，如 API-KEY 等。
 - 定义: get_env(name, default=None, *, desc=None)
 - 参数: 第一个参数为需要获取的环境变量名称，第二个参数为不存在时的默认返回值，第三个可选字符串参数简要描述需要的是什么。
@@ -172,7 +195,7 @@ else:
     print(f"{env_name} is available")
 ```
 
-### runtime.display 方法
+### `display` 方法
 - 功能: 显示图片
 - 定义: display(path="path/to/image.jpg", url="https://www.example.com/image.png")
 - 参数: 
@@ -186,19 +209,28 @@ runtime.display(path="path/to/image.png")
 runtime.display(url="https://www.example.com/image.png")
 ```
 
-# 代码执行结果反馈
-Python代码块的执行结果会通过JSON对象反馈给你，对象包括以下属性：
+# 代码块执行结果反馈
+代码块的执行结果会通过JSON格式反馈给你。
+
+每个代码块的执行结果对象都有下述属性：
 - `stdout`: 标准输出内容
 - `stderr`: 标准错误输出
-- `result`: 前述`set_result` 函数设置的当前代码块执行结果
 - `errstr`: 异常信息
-- `traceback`: 异常堆栈信息
-- `block_name`: 执行的代码块名称
+- `block_name`: 对应的代码块名称
 
 注意：
 - 如果某个属性为空，它不会出现在反馈中。
 
 收到反馈后，结合代码和反馈数据，做出下一步的决策。
+
+## Python 代码块执行结果
+还包括以下属性：
+- `__state__`: 前述`__state__` 变量的内容
+- `traceback`: 异常堆栈信息
+
+## Bash/PowerShell/AppleScript 代码块
+还包括下述属性：
+- `returncode`: 执行代码块的 subprocess 进程退出码
 """
 
 TIPS_PROMPT = """
@@ -284,10 +316,7 @@ def get_task_prompt(instruction, gui=False):
     prompt['task'] = instruction
     prompt['source'] = "User"
     context = OrderedDict()
-    context['os_type'] = platform.system()
-    context['os_locale'] = locale.getlocale()
-    context['os_platform'] = platform.platform()
-    context['python_version'] = platform.python_version()
+    get_system_context(context)
     context['today'] = date.today().isoformat()
     
     if not gui:

@@ -20,6 +20,23 @@ class CodeBlock:
     lang: str
     code: str
     path: Optional[str] = None
+    deps: Optional[Dict[str, set]] = None
+
+    def add_dep(self, dep_name: str, dep_value: Any):
+        """添加依赖"""
+        if self.deps is None:
+            self.deps = {}
+        if dep_name not in self.deps:
+            deps = set()
+            self.deps[dep_name] = deps
+        else:
+            deps = self.deps[dep_name]
+
+        # dep_value 可以是单个值，或者一个可迭代对象
+        if isinstance(dep_value, (list, set, tuple)):
+            deps.update(dep_value)
+        else:
+            deps.add(dep_value)
 
     def save(self):
         """保存代码块到文件"""
@@ -49,6 +66,7 @@ class CodeBlock:
             'lang': self.lang,
             'code': self.code,
             'path': self.path,
+            'deps': self.deps
         }
 
     def __repr__(self):

@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 
 import os
-import json
 from pathlib import Path
 from collections import deque, namedtuple
 
@@ -14,8 +13,9 @@ from .plugin import PluginManager
 from .prompt import get_system_prompt
 from .diagnose import Diagnose
 from .llm import ClientManager
-from .config import PLUGINS_DIR, TIPS_DIR, get_mcp, get_tt_api_key, get_tt_aio_api
+from .config import PLUGINS_DIR, TIPS_DIR, get_mcp_config_file, get_tt_api_key, get_tt_aio_api
 from .tips import TipsManager
+from .mcp_tool import MCPToolManager
 
 class TaskManager:
     MAX_TASKS = 16
@@ -38,7 +38,10 @@ class TaskManager:
             self.cwd = workdir
         else:
             self.cwd = Path.cwd()
-        self.mcp = get_mcp(settings.get('_config_dir'))
+        self.mcp = None
+        mcp_config_file = get_mcp_config_file(settings.get('_config_dir'))
+        if mcp_config_file:
+            self.mcp = MCPToolManager(mcp_config_file)
         self._init_environ()
         self.tt_api_key = get_tt_api_key(settings)
         self._init_api()
