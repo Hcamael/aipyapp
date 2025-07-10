@@ -11,7 +11,7 @@ from .. import T
 from .task import Task
 from .plugin import PluginManager
 from .llm import ClientManager
-from .config import PLUGINS_DIR, CONFIG_DIR, get_tt_api_key, get_tt_aio_api
+from .config import PLUGINS_DIR, CONFIG_DIR, get_tt_api_key
 from .tips import TipsManager
 
 class TaskManager:
