@@ -11,7 +11,7 @@ from .. import T
 from .task import Task
 from .plugin import PluginManager
 from .llm import ClientManager
-from .config import PLUGINS_DIR, TIPS_DIR, get_tt_api_key, get_tt_aio_api
+from .config import PLUGINS_DIR, CONFIG_DIR, get_tt_api_key, get_tt_aio_api
 from .tips import TipsManager
 
 class TaskManager:
@@ -26,7 +26,7 @@ class TaskManager:
         self.plugin_manager = PluginManager(PLUGINS_DIR)
         self.plugin_manager.load_plugins()
         if settings.workdir:
-            workdir = Path.cwd() / settings.workdir
+            workdir = Path.cwd() / os.getenv('AIPY_WORKDIR', settings.workdir)
             workdir.mkdir(parents=True, exist_ok=True)
             os.chdir(workdir)
             self.cwd = workdir
@@ -36,7 +36,8 @@ class TaskManager:
         self.tt_api_key = get_tt_api_key(settings)
         self._init_api()
         self.client_manager = ClientManager(settings)
-        self.tips_manager = TipsManager(TIPS_DIR)
+        self.tips_dir = Path(settings.get('config_dir', CONFIG_DIR)) / 'tips'
+        self.tips_manager = TipsManager(self.tips_dir)
         self.tips_manager.load_tips()
         self.tips_manager.use(settings.get('role', 'aipy'))
         self.task: 'Task|None' = None
