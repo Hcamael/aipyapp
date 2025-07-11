@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+from hmac import new
 import os
 import json
 import re
@@ -130,6 +131,7 @@ class Task(Stoppable):
         self.done_time = time.time()
         self.log.info('Task done', parh=newname)
         self.console.print(f"[green]{T('Result file saved')}: \"{newname}\"")
+        return newname
         
     def process_reply(self, markdown) -> tuple[bool, str]:
         status = False
