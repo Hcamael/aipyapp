@@ -62,14 +62,11 @@ class DictModuleImporter:
 
     def __enter__(self):
         self._old_meta_path = sys.meta_path[:]
-        self._old_sys_modules = sys.modules.copy()
         sys.meta_path.insert(0, self.finder)
-        sys.modules = sys.modules.copy()
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
         sys.meta_path = self._old_meta_path
-        sys.modules = self._old_sys_modules
 
 # ========== 测试 ==========
 

@@ -3,6 +3,8 @@ import types
 import importlib.abc
 import importlib.util
 
+from loguru import logger
+
 class ObjectModuleLoader(importlib.abc.Loader):
     def __init__(self, fullname, obj):
         self.fullname = fullname
@@ -23,8 +25,10 @@ class ObjectModuleFinder(importlib.abc.MetaPathFinder):
     def __init__(self, package, object_map):
         self.package = package
         self.object_map = object_map
+        self.logger = logger.bind(src='ObjectModuleFinder')
 
     def find_spec(self, fullname, path, target=None):
+        self.logger.info(f"find_spec: {fullname}, {path}, {target}")
         if fullname == self.package:
             spec = importlib.util.spec_from_loader(fullname, loader=None)
             spec.submodule_search_locations = []
@@ -46,14 +50,12 @@ class ObjectImporter:
 
     def __enter__(self):
         self._old_meta_path = sys.meta_path[:]
-        self._old_sys_modules = sys.modules.copy()
-        sys.meta_path.insert(0, self.finder)
-        sys.modules = sys.modules.copy()
+        if self.finder not in sys.meta_path:
+            sys.meta_path.insert(0, self.finder)
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         sys.meta_path = self._old_meta_path
-        sys.modules = self._old_sys_modules
 
 if __name__ == "__main__":
     class Runtime:

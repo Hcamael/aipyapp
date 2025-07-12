@@ -38,12 +38,12 @@ class TaskManager:
             self.cwd = workdir
         else:
             self.cwd = Path.cwd()
+        self._init_environ()
+        self.tt_api_key = get_tt_api_key(settings)
         self.mcp = None
         mcp_config_file = get_mcp_config_file(settings.get('_config_dir'))
         if mcp_config_file:
-            self.mcp = MCPToolManager(mcp_config_file)
-        self._init_environ()
-        self.tt_api_key = get_tt_api_key(settings)
+            self.mcp = MCPToolManager(mcp_config_file, self.tt_api_key)
         self._init_api()
         self.diagnose = Diagnose.create(settings)
         self.client_manager = ClientManager(settings)

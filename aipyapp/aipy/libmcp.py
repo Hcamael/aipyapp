@@ -146,16 +146,42 @@ def extract_call_tool_str(text) -> str:
 
 
 class MCPConfigReader:
-    def __init__(self, config_path):
+    def __init__(self, config_path, tt_api_key=None):
         self.config_path = config_path
+        self.tt_api_key = tt_api_key
+
+    def _rewrite_config(self, servers):
+        """rewrite MCP server config"""
+        if not self.tt_api_key:
+            return servers
+
+        for _, server_config in servers.items():
+            # 检查是否是trustoken的URL且transport类型为streamable_http
+            url = server_config.get("url", "")
+            transport = server_config.get("transport", {})
+
+            trustoken_urls = (
+                url.startswith("https://sapi.trustoken.ai/") or
+                url.startswith("https://api.trustoken.cn/")
+            )
+
+            if trustoken_urls and transport.get("type") == "streamable_http":
+                if "headers" not in server_config:
+                    server_config["headers"] = {}
+
+                server_config["headers"].update({
+                    "Authorization": f"Bearer {self.tt_api_key}"
+                })
+
+        return servers
 
     def get_mcp_servers(self):
         """读取 mcp.json 文件并返回 MCP 服务器清单，包括禁用的服务器"""
         try:
             with open(self.config_path, "r", encoding="utf-8") as f:
                 config = json.load(f)
-                # 返回所有服务器配置，包括禁用的
-                return config.get("mcpServers", {})
+                servers = config.get("mcpServers", {})
+                return self._rewrite_config(servers)
         except FileNotFoundError:
             print(f"Config file not found: {self.config_path}")
             return {}
@@ -210,10 +236,9 @@ class MCPClientSync:
                 return asyncio.run(coro)
             except Exception as e:
                 print(f"Error running async function: {e}")
-                raise
 
-    def list_tools(self):
-        return self._run_async(self._list_tools())
+    def list_tools(self) -> list:
+        return self._run_async(self._list_tools()) or []
 
     def call_tool(self, tool_name, arguments):
         return self._run_async(self._call_tool(tool_name, arguments))
@@ -298,5 +323,6 @@ class MCPClientSync:
             return ret
         except Exception as e:
             logger.exception(f"Failed to call tool {tool_name}: {e}")
-            raise
+            print(f"Failed to call tool {tool_name}: {e}")
+            return {"error": str(e), "tool_name": tool_name, "arguments": arguments}
 
