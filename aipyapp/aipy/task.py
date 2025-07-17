@@ -56,7 +56,6 @@ class Task(Stoppable):
         self.runtime: Runtime = Runtime(self)
         self.runner: Runner = Runner(self.runtime)
         self.system_prompt = prompt.get_system_prompt(manager.tips_manager.current_tips, manager.api_prompt, self.runtime.get_prompt(), manager.settings.get('system_prompt'))
-        self.system_prompt += f"\n当前目录为：{self.cwd}\n**写文件时，请使用绝对路径**"
         self.cmd_exec_pattern = r'<!--\s*Cmd-Exec:\s*{\s*"name"\s*:\s*"([^"]+)"\s*}\s*-->'
         self.start_time = None
         self.done_time = None
