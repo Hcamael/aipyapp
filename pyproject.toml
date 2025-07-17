@@ -15,7 +15,6 @@ dependencies = [
   "requests>=2.32.3",
   "rich>=13.9.4",
   "seaborn>=0.13.2",
-  "term-image>=0.7.2",
   "tomli-w>=1.2.0",
   "qrcode>=8.1",
   "loguru>=0.7.3",

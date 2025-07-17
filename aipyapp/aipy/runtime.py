@@ -4,8 +4,6 @@ import sys
 import subprocess
 from functools import wraps
 
-from term_image.image import from_file, from_url
-
 from . import utils
 from .plugin import event_bus
 from .. import T
