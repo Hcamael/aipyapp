@@ -65,6 +65,7 @@ _apply_streamable_http_patch()
 CODE_BLOCK_PATTERN = re.compile(r"```(?:json)?\s*([\s\S]*?)\s*```")
 JSON_PATTERN = re.compile(r"(\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\})")
 
+
 def extra_call_tool_blocks(blocks) -> str:
     """
     从代码块列表中提取 MCP call_tool JSON。
@@ -146,7 +147,7 @@ def extract_call_tool_str(text) -> str:
 
 
 class MCPConfigReader:
-    def __init__(self, config_path, tt_api_key=None):
+    def __init__(self, config_path, tt_api_key):
         self.config_path = config_path
         self.tt_api_key = tt_api_key
 
@@ -160,12 +161,7 @@ class MCPConfigReader:
             url = server_config.get("url", "")
             transport = server_config.get("transport", {})
 
-            trustoken_urls = (
-                url.startswith("https://sapi.trustoken.ai/") or
-                url.startswith("https://api.trustoken.cn/")
-            )
-
-            if trustoken_urls and transport.get("type") == "streamable_http":
+            if url.startswith(T("https://sapi.trustoken.ai")) and transport.get("type") == "streamable_http":
                 if "headers" not in server_config:
                     server_config["headers"] = {}
 
@@ -175,8 +171,10 @@ class MCPConfigReader:
 
         return servers
 
-    def get_mcp_servers(self):
+    def get_user_mcp(self) -> dict:
         """读取 mcp.json 文件并返回 MCP 服务器清单，包括禁用的服务器"""
+        if not self.config_path:
+            return {}
         try:
             with open(self.config_path, "r", encoding="utf-8") as f:
                 config = json.load(f)
@@ -189,6 +187,38 @@ class MCPConfigReader:
             print(T("Error decoding MCP config file {}: {}").format(self.config_path, e))
             return {}
 
+
+    def get_sys_mcp(self) -> dict:
+        """
+        获取内部 MCP 服务器配置。
+
+        Returns:
+            dict: 内部 MCP 服务器配置字典。
+        """
+        if not self.tt_api_key:
+            logger.warning("No Trustoken API key provided, sys_mcp will not be available.")
+            return {}
+
+        return {
+            "Trustoken-map": {
+                "url": f"{T('https://sapi.trustoken.ai')}/aio-api/mcp/amap/",
+                "transport": {
+                    "type": "streamable_http"
+                },
+                "headers": {
+                    "Authorization": f"Bearer {self.tt_api_key}"
+                }
+            },
+            "Trustoken-search": {
+                "url": f"{T('https://sapi.trustoken.ai')}/mcp/",
+                "transport": {
+                    "type": "streamable_http"
+                },
+                "headers": {
+                    "Authorization": f"Bearer {self.tt_api_key}"
+                }
+            }
+        }
 
 class MCPClientSync:
     def __init__(self, server_config, suppress_output=True):

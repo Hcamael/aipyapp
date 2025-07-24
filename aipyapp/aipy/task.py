@@ -6,8 +6,9 @@ import json
 import uuid
 import time
 from datetime import datetime
-from collections import namedtuple
+from collections import namedtuple, OrderedDict
 from importlib.resources import read_text
+from typing import Union, List, Dict, Any
 
 import requests
 from loguru import logger
@@ -27,6 +28,7 @@ from .utils import get_safe_filename
 from .blocks import CodeBlocks, CodeBlock
 from .interface import Stoppable
 from . import prompt
+from .multimodal import MMContent, LLMContext
 
 CONSOLE_WHITE_HTML = read_text(__respkg__, "console_white.html")
 CONSOLE_CODE_HTML = read_text(__respkg__, "console_code.html")
@@ -52,6 +54,7 @@ class Task(Stoppable):
         self.diagnose = None
         self.start_time = None
         self.done_time = None
+        self.saved = None
         self.code_blocks = CodeBlocks(self.console)
         self.runtime = CliPythonRuntime(self)
         self.runner = BlockExecutor()
@@ -93,24 +96,37 @@ class Task(Stoppable):
     def _auto_save(self):
         event_bus.broadcast('auto_save', self)
         instruction = self.instruction
-        task = {'instruction': instruction}
+        task = OrderedDict()
+        task['instruction'] = instruction
+        task['start_time'] = self.start_time
+        task['done_time'] = self.done_time
         task['chats'] = self.client.history.json()
         #task['envs'] = self.runtime.envs
         task['runner'] = self.runner.history
         task['blocks'] = self.code_blocks.to_list()
 
-        filename = "task.json"
+        filename = self.cwd / "task.json"
         try:
             json.dump(task, open(filename, 'w', encoding='utf-8'), ensure_ascii=False, indent=4, default=str)
         except Exception as e:
             self.log.exception('Error saving task')
 
-        filename = "console.html"
+        filename = self.cwd / "console.html"
         #self.save_html(filename, task)
         self.save(filename)
+        self.saved = True
         self.log.info('Task auto saved')
 
     def done(self):
+        if not self.instruction or not self.start_time:
+            self.log.warning('Task not started, skipping save')
+            return
+        
+        self.done_time = time.time()
+        if not self.saved:
+            self.log.warning('Task not saved, trying to save')
+            self._auto_save()
+
         os.chdir(self.manager.cwd)  # Change back to the original working directory
         curname = self.task_id
         newname = get_safe_filename(self.instruction, extension=None)
@@ -120,10 +136,9 @@ class Task(Stoppable):
             except Exception as e:
                 self.log.exception('Error renaming task directory', curname=curname, newname=newname)
 
-        self.diagnose.report_code_error(self.runner.history)
-        self.done_time = time.time()
-        self.log.info('Task done', parh=newname)
+        self.log.info('Task done', path=newname)
         self.console.print(f"[green]{T('Result file saved')}: \"{newname}\"")
+        self.diagnose.report_code_error(self.runner.history)
         if self.settings.get('share_result'):
             self.sync_to_cloud()
         
@@ -244,9 +259,9 @@ class Task(Stoppable):
         self.console.print(f"\n⏹ [cyan]{T('End processing instruction')} {summarys}")
 
 
-    def chat(self, instruction, *, system_prompt=None):
+    def chat(self, context: LLMContext, *, system_prompt=None):
         quiet = self.settings.gui and not self.settings.debug
-        msg = self.client(instruction, system_prompt=system_prompt, quiet=quiet)
+        msg = self.client(context, system_prompt=system_prompt, quiet=quiet)
         if msg.role == 'error':
             self.console.print(f"[red]{msg.content}[/red]")
             return None
@@ -257,35 +272,51 @@ class Task(Stoppable):
         self.box(f"[yellow]{T('Reply')} ({self.client.name})", content)
         return msg.content
 
-    def run(self, instruction):
+    def run(self, instruction: str):
         """
         执行自动处理循环，直到 LLM 不再返回代码消息
+        instruction: 用户输入的字符串（可包含@file等多模态标记）
         """
         self.box(f"[yellow]{T('Start processing instruction')}", instruction, align="center")
+        mmc = MMContent(instruction, base_path=self.manager.cwd)
+        try:
+            content = mmc.content
+        except Exception as e:
+            self.console.print(f"[red]{e}[/red]")
+            return
+
+        if not self.client.has_capability(content):
+            self.console.print(f"[red]{T('Current model does not support this content')}[/red]")
+            return
+
         if not self.start_time:
             self.start_time = time.time()
             self.instruction = instruction
-            msg = prompt.get_task_prompt(instruction, gui=self.gui)
-            event_bus('task_start', prompt)
+            if isinstance(content, str):
+                content = prompt.get_task_prompt(content, gui=self.gui)
+                event_bus('task_start', content)
+                content = json.dumps(content, ensure_ascii=False, default=str)
             system_prompt = self.system_prompt
         else:
             system_prompt = None
-            msg = prompt.get_chat_prompt(instruction, self.instruction)
+            if isinstance(content, str):
+                content = prompt.get_chat_prompt(content, self.instruction)
+                content = json.dumps(content, ensure_ascii=False, default=str)
 
         self.cwd.mkdir(exist_ok=True)
         os.chdir(self.cwd)
 
         rounds = 1
         max_rounds = self.max_rounds
-        json_prompt = json.dumps(msg, ensure_ascii=False, default=str)
-        response = self.chat(json_prompt, system_prompt=system_prompt)
+        self.saved = False
+        response = self.chat(content, system_prompt=system_prompt)
         while response and rounds <= max_rounds:
             response = self.process_reply(response)
             rounds += 1
             if self.is_stopped():
                 self.log.info('Task stopped')
                 break
-
+        
         self.print_summary()
         self._auto_save()
         self.console.bell()

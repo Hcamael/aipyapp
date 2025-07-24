@@ -1,0 +1,194 @@
+# 2025-07-14 最新主流模型能力速览（含 Claude 系列）
+OpenAI:
+  gpt-4.1:
+    description: Flagship GPT model for complex tasks
+    capabilities: [TEXT, IMAGE_INPUT, FUNCTION_CALLING, STRUCTURED_OUTPUT]
+    context_length: 1047576
+    max_output_tokens: 32768
+    prices:
+      input: 2.00
+      cached: 0.50
+      output: 8.00
+
+  gpt-4.1-mini:
+    description: Balanced for intelligence, speed, and cost
+    capabilities: [TEXT, IMAGE_INPUT, FUNCTION_CALLING, STRUCTURED_OUTPUT]
+    context_length: 1047576
+    max_output_tokens: 32768
+    prices:
+      input: 0.40
+      cached: 0.10
+      output: 1.60
+
+  gpt-4.1-nano:
+    description: Fastest, most cost-effective GPT-4.1 model
+    capabilities: [TEXT, IMAGE_INPUT, FUNCTION_CALLING, STRUCTURED_OUTPUT]
+    context_length: 1047576
+    max_output_tokens: 32768
+    prices:
+      input: 0.10
+      cached: 0.025
+      output: 0.40
+
+  o4-mini:
+    description: Faster, more affordable reasoning model
+    capabilities: [TEXT, IMAGE_INPUT, FUNCTION_CALLING, STRUCTURED_OUTPUT, REASONING]
+    context_length: 200000
+    max_output_tokens: 100000
+    prices:
+      input: 1.10
+      cached: 0.275
+      output: 4.40
+
+  o3:
+    description: Use it to think through multi-step problems that involve analysis across text, code, and images
+    capabilities: [TEXT, IMAGE_INPUT]
+    context_length: 200000
+    max_output_tokens: 100000
+    prices:
+      input: 2.00
+      cached: 0.50
+      output: 8.00
+
+Google:
+  gemini-2.5-pro:
+    description: state-of-the-art thinking model, capable of reasoning over complex problems in code, math, and STEM, as well as analyzing large datasets, codebases, and documents using long context
+    capabilities: [TEXT, IMAGE_INPUT, VIDEO_INPUT, AUDIO_INPUT, AUDIO_OUTPUT, FUNCTION_CALLING, NATIVE_SEARCH]
+    context_length: 1048576
+    max_output_tokens: 65536
+
+  gemini-2.5-flash:
+    description: 文本+图片+视频输入；超长文档理解（2 M token），函数调用
+    capabilities: [TEXT, IMAGE_INPUT, VIDEO_INPUT, AUDIO_INPUT, AUDIO_OUTPUT, FUNCTION_CALLING]
+    context_length: 1048576
+    max_output_tokens: 65536
+
+xAI:
+  grok-4:
+    description: offering unparalleled performance in natural language, math and reasoning
+    capabilities: [TEXT, IMAGE_INPUT, FUNCTION_CALLING, STRUCTURED_OUTPUT, REASONING]
+    context_length: 256000
+    prices:
+      input: 3.00
+      cached: 0.75
+      output: 15.00
+
+  grok-3:
+    description: Excels at enterprise use cases like data extraction, coding, and text summarization
+    capabilities: [TEXT, FUNCTION_CALLING, STRUCTURED_OUTPUT]
+    context_length: 131072
+    prices:
+      input: 3.00
+      cached: 0.75
+      output: 15.00
+
+  grok-3-mini:
+    description: A lightweight model that thinks before responding
+    capabilities: [TEXT, FUNCTION_CALLING, STRUCTURED_OUTPUT, REASONING]
+    context_length: 131072
+    prices:
+      input: 0.30
+      cached: 0.075
+      output: 0.5
+
+  grok-3-fast:
+    description: Excels at enterprise use cases like data extraction, coding, and text summarization
+    capabilities: [TEXT, FUNCTION_CALLING, STRUCTURED_OUTPUT]
+    context_length: 131072
+    prices:
+      input: 5.00
+      cached: 1.25
+      output: 25.00
+
+  grok-2-vision:
+    description: multimodal model that processes documents, diagrams, charts, screenshots, and photographs
+    capabilities: [TEXT, IMAGE_INPUT, FUNCTION_CALLING, STRUCTURED_OUTPUT]
+    context_length: 32768
+    prices:
+      input: 2.00
+      cached: 0.00
+      output: 10.00
+
+DeepSeek:
+  deepseek-chat:
+    description: deepseek's flagship model for complex tasks
+    capabilities: [TEXT, FUNCTION_CALLING, STRUCTURED_OUTPUT]
+    context_length: 65536
+    max_output_tokens: 8192
+    prices:
+      input: 0.07
+      cached: 0.27
+      output: 1.10
+
+  deepseek-reasoner:
+    description: deepseek's reasoning model for complex tasks
+    capabilities: [TEXT, FUNCTION_CALLING, STRUCTURED_OUTPUT, REASONING]
+    context_length: 65536
+    max_output_tokens: 65536
+    prices:
+      input: 0.14
+      cached: 0.55
+      output: 2.19
+
+Anthropic:
+  claude-opus-4:
+    description: Highest level of intelligence and capability
+    capabilities: [TEXT, IMAGE_INPUT, FUNCTION_CALLING, CODE_EXECUTION, EXTENDED_THINKING, REASONING]
+    context_length: 204800
+    max_output_tokens: 32000
+    prices:
+      input: 15.00
+      cached: 1.50
+      output: 75.00
+
+  claude-sonnet-4:
+    description: High intelligence and balanced performance
+    capabilities: [TEXT, IMAGE_INPUT, FUNCTION_CALLING, CODE_EXECUTION, EXTENDED_THINKING, REASONING]
+    context_length: 204800
+    max_output_tokens: 64000
+    prices:
+      input: 3.00
+      cached: 0.30
+      output: 15.00
+
+MoonShot:
+  kimi-latest:
+    description: the latest version of the Kimi large model
+    capabilities: [TEXT, IMAGE_INPUT, FUNCTION_CALLING, STRUCTURED_OUTPUT, REASONING]
+    context_length: 131072
+    max_output_tokens: 65536
+    prices:
+      input: 2.00
+      cached: 0.15
+      output: 5.00
+
+  kimi-k2:
+    description: a Mixture-of-Experts (MoE) foundation model with exceptional coding and agent capabilities
+    capabilities: [TEXT, FUNCTION_CALLING, STRUCTURED_OUTPUT, REASONING]
+    context_length: 131072
+    max_output_tokens: 65536
+    prices:
+      input: 0.30
+      cached: 0.075
+      output: 0.5
+
+Doubao:
+  doubao-seed-1.6-250615:
+    description: 全新多模态深度思考模型，同时支持 thinking、non-thinking、auto三种思考模式
+    capabilities: [TEXT, IMAGE_INPUT, VIDEO_INPUT, FUNCTION_CALLING, STRUCTURED_OUTPUT, REASONING]
+    context_length: 262144
+    max_output_tokens: 32768
+    prices:
+      input: 2.40
+      cached: 0.16
+      output: 24.00
+
+  doubao-seed-1.6-flash-250615:
+    description: 有极致推理速度的多模态深度思考模型；同时支持文本和视觉理解
+    capabilities: [TEXT, IMAGE_INPUT, VIDEO_INPUT, FUNCTION_CALLING, STRUCTURED_OUTPUT, REASONING]
+    context_length: 262144
+    max_output_tokens: 32768
+    prices:
+      input: 0.60
+      cached: 0.03
+      output: 6.00

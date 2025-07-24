@@ -6,6 +6,7 @@ from functools import wraps
 from term_image.image import from_file, from_url
 
 from . import utils
+from .tool import llm_call
 from .plugin import event_bus
 from .. import T
 from ..exec import PythonRuntime
@@ -72,3 +73,6 @@ class CliPythonRuntime(PythonRuntime):
     
     def get_block_by_name(self, block_name):
         return self.task.code_blocks.get_block_by_name(block_name)
+    
+    def call_tool(self, name, **kwargs):
+        return llm_call(name, **kwargs)

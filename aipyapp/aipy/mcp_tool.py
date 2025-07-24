@@ -52,32 +52,39 @@ def build_function_call_tool_name(server_name: str, tool_name: str) -> str:
 
 
 class MCPToolManager:
-    def __init__(self, config_path, tt_api_key=None):
+    def __init__(self, config_path, tt_api_key):
         self.config_path = config_path
         self.config_reader = MCPConfigReader(config_path, tt_api_key=tt_api_key)
-        self.mcp_servers = self.config_reader.get_mcp_servers()
+        self.user_mcp = self.config_reader.get_user_mcp()
+        self.sys_mcp = self.config_reader.get_sys_mcp()
+        self.mcp_servers = self.sys_mcp | self.user_mcp
         self._tools_dict = {}  # 缓存已获取的工具列表
         self._inited = False
 
-        # 全局启用/禁用标志，默认禁用
-        self._globally_enabled = False
+        # 全局启用/禁用用户MCP标志，默认禁用
+        self._mcp_globally_enabled = False
         # 服务器状态缓存，记录每个服务器的启用/禁用状态
         self._server_status = self._init_server_status()
 
     def _init_server_status(self):
-        """初始化服务器状态，从配置文件中读取初始状态，包括禁用的服务器"""
+        """初始化服务器状态，从配置文件中读取初始状态，包括禁用的服务器，同时会被命令行更新，维护在内存中"""
 
         server_status = {}
         for server_name, server_config in self.mcp_servers.items():
-            # 服务器默认启用，除非配置中明确设置为disabled: true或enabled: false
-            is_enabled = not (
-                server_config.get("disabled", False)
-                or server_config.get("enabled", True) is False
-            )
+            # sys_mcp 服务器默认禁用，user_mcp 服务器默认启用
+            if server_name in self.sys_mcp:
+                # sys_mcp 服务器默认禁用
+                is_enabled = False
+            else:
+                # user_mcp 服务器默认启用，除非配置中明确设置为禁用
+                is_enabled = not (
+                    server_config.get("disabled", False)
+                    or server_config.get("enabled", True) is False
+                )
             server_status[server_name] = is_enabled
         return server_status
 
-    def list_tools(self):
+    def list_tools(self, mcp_type="user", force_load=False):
         """返回所有MCP服务器的工具列表
         [{'description': 'Get weather alerts for a US state.\n'
                            '\n'
@@ -95,17 +102,22 @@ class MCPToolManager:
             },
         ]
         """
-        # 如果全局禁用，直接返回空列表
-        if not self._globally_enabled:
-            return []
+        if mcp_type == "user":
+            if not self._mcp_globally_enabled and not force_load:
+                return []
+            mcp_servers = self.user_mcp
+            if self._mcp_globally_enabled:
+                print(
+                    T(
+                        "Initializing MCP server, this may take a while if it's "
+                        "the first load, please wait patiently..."
+                    )
+                )
+        else:
+            mcp_servers = self.sys_mcp
 
         all_tools = []
-        print(
-            T(
-                "Initializing MCP server, this may take a while if it's the first load, please wait patiently..."
-            )
-        )
-        for server_name, server_config in self.mcp_servers.items():
+        for server_name, server_config in mcp_servers.items():
             if server_name not in self._tools_dict:
                 try:
                     print("+ Loading MCP", server_name)
@@ -170,37 +182,46 @@ class MCPToolManager:
 
     def get_available_tools(self):
         """返回已经启用的工具列表"""
-        # 如果全局禁用，直接返回空列表
-        if not self._globally_enabled:
-            return []
 
         if not self._inited:
             self.list_tools()
 
         all_tools = []
         for server_name, tools in self._tools_dict.items():
-            # 只包含启用的服务器
-            if self._server_status.get(server_name, True):
+            # 检查全局启用状态和单个服务器状态
+            is_user_server = server_name in self.user_mcp
+
+            # user_mcp服务器需要同时满足全局启用和服务器启用
+            # sys_mcp服务器只需要服务器启用
+            server_enabled = self._server_status.get(server_name, True)
+            if is_user_server:
+                server_enabled = server_enabled and self._mcp_globally_enabled
+
+            if server_enabled:
                 for tool in tools:
                     tool["server"] = server_name
                     all_tools.append(tool)
         return all_tools
 
-    def get_all_servers(self) -> dict:
+    def get_server_info(self, mcp_type="user") -> dict:
         """返回所有服务器的列表及其启用状态"""
         if not self._inited:
-            self.list_tools()
+            # 强制加载工具信息，即使全局禁用也要获取服务器和工具数量信息
+            self.list_tools(mcp_type=mcp_type, force_load=True)
 
+        if mcp_type == "user":
+            mcp_servers = self.user_mcp
+        else:
+            mcp_servers = self.sys_mcp
         # 返回服务器列表及其启用状态
         servers_info = {}
-        for server_name, status in self._server_status.items():
-            ret = {'enabled': status, 'tools_count': 0}
-            # if server_name not in self._tools_dict:
+        for server_name, _ in mcp_servers.items():
+            is_enabled = self._server_status.get(server_name, True)
             tools = self._tools_dict.get(server_name, [])
-            if tools:
-                # 如果服务器有工具，则更新工具数量
-                ret['tools_count'] = len(tools)
-            servers_info[server_name] = ret
+            servers_info[server_name] = {
+                "enabled": is_enabled,
+                "tools_count": len(tools),
+            }
 
         return servers_info
 
@@ -259,7 +280,7 @@ class MCPToolManager:
         client = MCPClientSync(server_config)
         ret = client.call_tool(real_tool_name, arguments)
         # ret需要是json，并且如果同时包含content和structuredContent字段，则丢弃content
-        if isinstance(ret, dict) and ret.get("content") and ret.get("structuredContent"):
+        if (isinstance(ret, dict) and ret.get("content") and ret.get("structuredContent")):
             del ret["content"]
 
         return ret
@@ -284,20 +305,22 @@ class MCPToolManager:
             if len(args) == 1:
                 # 全局启用/禁用
                 if action == "enable":
-                    self._globally_enabled = True
+                    self._mcp_globally_enabled = True
+                    # 重新加载用户MCP工具，因为之前可能因为全局禁用而没有加载
+                    self.list_tools(mcp_type="user")
                     return {
                         "status": "success",
                         "action": "global_enable",
-                        "globally_enabled": self._globally_enabled,
-                        "servers": self.get_all_servers(),
+                        "globally_enabled": self._mcp_globally_enabled,
+                        "servers": self.get_server_info(),
                     }
                 else:  # disable
-                    self._globally_enabled = False
+                    self._mcp_globally_enabled = False
                     return {
                         "status": "success",
                         "action": "global_disable",
-                        "globally_enabled": self._globally_enabled,
-                        "servers": self.get_all_servers(),
+                        "globally_enabled": self._mcp_globally_enabled,
+                        "servers": self.get_server_info(),
                     }
             elif len(args) == 2:
                 # 针对特定服务器的启用/禁用
@@ -306,7 +329,7 @@ class MCPToolManager:
                 # 处理特殊情况：星号操作符，对所有服务器执行相同操作
                 if server_name == "*":
                     # 遍历所有服务器并设置状态（不改变全局启用/禁用状态）
-                    for srv_name in self.mcp_servers.keys():
+                    for srv_name in self.user_mcp.keys():
                         self._server_status[srv_name] = action == "enable"
 
                     # 刷新工具列表
@@ -314,12 +337,12 @@ class MCPToolManager:
                     return {
                         "status": "success",
                         "action": f"all_servers_{action}",
-                        "globally_enabled": self._globally_enabled,
-                        "servers": self.get_all_servers(),
+                        "globally_enabled": self._mcp_globally_enabled,
+                        "servers": self.get_server_info(),
                     }
 
                 # 检查服务器是否存在
-                if server_name not in self.mcp_servers:
+                if server_name not in self.user_mcp:
                     return {
                         "status": "error",
                         "message": f"Unknown server: {server_name}",
@@ -333,8 +356,8 @@ class MCPToolManager:
                         "status": "success",
                         "action": "server_enable",
                         "server": server_name,
-                        "globally_enabled": self._globally_enabled,
-                        "servers": self.get_all_servers(),
+                        "globally_enabled": self._mcp_globally_enabled,
+                        "servers": self.get_server_info(),
                     }
                 else:  # disable
                     self._server_status[server_name] = False
@@ -344,16 +367,45 @@ class MCPToolManager:
                         "status": "success",
                         "action": "server_disable",
                         "server": server_name,
-                        "globally_enabled": self._globally_enabled,
-                        "servers": self.get_all_servers(),
+                        "globally_enabled": self._mcp_globally_enabled,
+                        "servers": self.get_server_info(),
                     }
         elif action == "list":
             return {
                 "status": "success",
                 "action": "list",
-                "globally_enabled": self._globally_enabled,
-                "servers": self.get_all_servers(),
+                "globally_enabled": self._mcp_globally_enabled,
+                "servers": self.get_server_info(),
             }
 
         # 如果没有匹配任何已知命令
         return {"status": "error", "message": f"Invalid command: {' '.join(args)}"}
+
+    def process_tool_cmd(self, args):
+        """处理工具命令，执行相应操作
+
+        Args:
+            args (list): 命令行参数列表，例如 [], ["enable"], ["disable"],
+
+        Returns:
+            dict: 执行结果
+        """
+        if not args:
+            args = ["enable"]
+            
+        action = args[0].lower()
+
+        if action == "enable":
+            for server_name in self.sys_mcp:
+                self._server_status[server_name] = True
+        elif action == "disable":
+            for server_name in self.sys_mcp:
+                self._server_status[server_name] = False
+        elif action == "list":
+            pass
+        else:
+            return {"status": "error", "message": f"Invalid command: {action}"}
+            
+        self.list_tools(mcp_type="sys")
+        
+        return self.get_server_info(mcp_type="sys")

@@ -4,6 +4,7 @@
 import os
 from datetime import date
 from collections import OrderedDict
+from typing import Union, List, Dict, Any
 
 from .utils import get_system_context
 
@@ -78,6 +79,7 @@ print("hello world")
   * 数据处理过程中的类型错误和值错误处理
 - 如果需要区分正常和错误信息，可以把错误信息输出到 stderr。
 - 不允许执行可能导致 Python 解释器退出的指令，如 exit/quit 等函数，请确保代码中不包含这类操作。
+- 用户通过 <attachment filename="path/to/file"> 标记上传的文件，都是文本内容，你可以直接分析和处理，无需写代码读取文件内容。
 
 # Python运行环境描述
 在标准 Python 运行环境的基础上额外增加了下述包/模块：
@@ -89,7 +91,7 @@ print("hello world")
 
 ## 预装的第三方包
 下述第三方包可以无需安装直接使用：
-- `requests`、`numpy`、`pandas`、`matplotlib`、`seaborn`、`bs4`。
+- `requests`、`numpy`、`pandas`、`matplotlib`、`seaborn`、`beautifulsoup4`、`charset-normalizer`。
 
 其它第三方包，都必需通过下述 runtime 对象的 install_packages 方法申请安装才能使用。
 
@@ -312,7 +314,7 @@ def get_system_prompt(tips, api_prompt, user_prompt=None, mcp_tools=""):
 
     return SYSTEM_PROMPT_TEMPLATE.format(**prompts)
 
-def get_task_prompt(instruction, gui=False):
+def get_task_prompt(instruction: str, gui=False):
     prompt = OrderedDict()
     prompt['task'] = instruction
     prompt['source'] = "User"
@@ -342,7 +344,7 @@ def get_results_prompt(results):
     prompt['results'] = results
     return prompt
 
-def get_chat_prompt(msg, task):
+def get_chat_prompt(msg: Union[str, List[Dict[str, Any]]], task):
     prompt = OrderedDict()
     prompt['message'] = msg
     prompt['source'] = "User"

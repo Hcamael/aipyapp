@@ -10,6 +10,7 @@ import base64
 import mimetypes
 import traceback
 import threading
+from typing import List
 
 import wx
 import wx.html2
@@ -141,13 +142,20 @@ class AIPython(threading.Thread):
                 wx.CallAfter(self.gui.toggle_input)
 
 class FileDropTarget(wx.FileDropTarget):
-    def __init__(self, text_ctrl):
+    def __init__(self, text_ctrl, gui_frame):
         super().__init__()
         self.text_ctrl = text_ctrl
+        self.gui_frame = gui_frame
 
     def OnDropFiles(self, x, y, filenames):
-        s = json.dumps(filenames, ensure_ascii=False)
-        self.text_ctrl.AppendText(s)
+        # 直接在光标处插入@文件路径
+        current_text = self.text_ctrl.GetValue()
+        cursor_pos = self.text_ctrl.GetInsertionPoint()
+        insert_text = ' '.join([f"@{f}" for f in filenames])
+        new_text = current_text[:cursor_pos] + insert_text + current_text[cursor_pos:]
+        self.text_ctrl.SetValue(new_text)
+        self.text_ctrl.SetInsertionPoint(cursor_pos + len(insert_text))
+        wx.MessageBox(f"已添加 {len(filenames)} 个文件: {', '.join(filenames)}", "文件添加成功")
         return True
 
 class ChatFrame(wx.Frame):
@@ -232,7 +240,7 @@ class ChatFrame(wx.Frame):
             input_panel = self.make_input_panel(panel)
         else:
             input_panel = self.make_input_panel2(panel)
-        drop_target = FileDropTarget(self.input)
+        drop_target = FileDropTarget(self.input, self)
         self.input.SetDropTarget(drop_target)
         font = wx.Font(16, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL)
         self.input.SetFont(font)
@@ -434,6 +442,7 @@ class ChatFrame(wx.Frame):
 
         self.append_message(T("Me"), text)
         self.input.Clear()
+        
         self.toggle_input()
         self.task_queue.put(text)
 

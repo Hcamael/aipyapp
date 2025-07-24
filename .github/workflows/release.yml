@@ -27,10 +27,6 @@ jobs:
       - name: Install the project
         run: uv sync --all-extras
 
-      - name: Update __version__ in __init__.py
-        run: |
-          sed -i "s/__version__ = '.*'/__version__ = '${GITHUB_REF_NAME#v}'/" aipyapp/__init__.py
-
       - name: Build Package
         run: uv build
 

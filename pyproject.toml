@@ -22,6 +22,8 @@ dependencies = [
   "questionary>=2.1.0",
   "mcp[cli]>=1.10.0",
   "openpyxl>=3.1.5",
+  "pyyaml>=6.0.2",
+  "charset-normalizer>=3.4.2",
 ]
 
 [project.scripts]
@@ -31,11 +33,15 @@ aipy = "aipyapp.__main__:main"
 aipyw = "aipyapp.__main__:mainw"
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-vcs>=0.5.0"]
 build-backend = "hatchling.build"
 
 [tool.hatch.version]
-path = "aipyapp/__init__.py"
+source = "vcs"
+raw-options = { local_scheme = "no-local-version", version_scheme = "only-version" }
+
+[tool.hatch.build.hooks.vcs]
+version-file = "aipyapp/__version__.py"
 
 [[tool.uv.index]]
 url = "https://mirrors.aliyun.com/pypi/simple/"

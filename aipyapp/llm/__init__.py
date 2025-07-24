@@ -7,15 +7,16 @@ from .base import ChatMessage, BaseClient
 from .base_openai import OpenAIBaseClient
 from .client_claude import ClaudeClient
 from .client_ollama import OllamaClient
+from .models import ModelRegistry, ModelCapability
 
-__all__ = ['ChatMessage', 'CLIENTS']
+__all__ = ['ChatMessage', 'CLIENTS', 'ModelRegistry', 'ModelCapability']
 
 class OpenAIClient(OpenAIBaseClient): 
     MODEL = 'gpt-4o'
 
 class GeminiClient(OpenAIBaseClient): 
     BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/'
-    MODEL = 'gemini-2.5-flash-preview-05-20'
+    MODEL = 'gemini-2.5-flash'
 
 class DeepSeekClient(OpenAIBaseClient): 
     BASE_URL = 'https://api.deepseek.com'
@@ -49,6 +50,10 @@ class DoubaoClient(OpenAIBaseClient):
     BASE_URL = 'https://ark.cn-beijing.volces.com/api/v3'
     MODEL = 'doubao-seed-1.6-250615'
 
+class MoonShotClient(OpenAIBaseClient): 
+    BASE_URL = T('https://api.moonshot.ai/v1')
+    MODEL = 'kimi-latest'
+
 CLIENTS = {
     "openai": OpenAIClient,
     "ollama": OllamaClient,
@@ -58,6 +63,7 @@ CLIENTS = {
     'grok': GrokClient,
     'trust': TrustClient,
     'azure': AzureOpenAIClient,
-    'doubao': DoubaoClient
+    'doubao': DoubaoClient,
+    'kimi': MoonShotClient
 }
 

@@ -13,7 +13,7 @@ from .plugin import PluginManager
 from .prompt import get_system_prompt
 from .diagnose import Diagnose
 from .llm import ClientManager
-from .config import PLUGINS_DIR, TIPS_DIR, get_mcp_config_file, get_tt_api_key, get_tt_aio_api
+from .config import PLUGINS_DIR, TIPS_DIR, get_mcp_config_file, get_tt_api_key
 from .tips import TipsManager
 from .mcp_tool import MCPToolManager
 
@@ -40,10 +40,9 @@ class TaskManager:
             self.cwd = Path.cwd()
         self._init_environ()
         self.tt_api_key = get_tt_api_key(settings)
-        self.mcp = None
+        # 始终初始化MCPToolManager，内置工具也需要它
         mcp_config_file = get_mcp_config_file(settings.get('_config_dir'))
-        if mcp_config_file:
-            self.mcp = MCPToolManager(mcp_config_file, self.tt_api_key)
+        self.mcp = MCPToolManager(mcp_config_file, self.tt_api_key)
         self._init_api()
         self.diagnose = Diagnose.create(settings)
         self.client_manager = ClientManager(settings)
@@ -104,11 +103,6 @@ class TaskManager:
     def _init_api(self):
         api = self.settings.get('api', {})
 
-        # update tt aio api, for map and search
-        if self.tt_api_key:
-            tt_aio_api = get_tt_aio_api(self.tt_api_key)
-            api.update(tt_aio_api)
-
         lines = []
         for api_name, api_conf in api.items():
             lines.append(f"## {api_name} API")
@@ -142,7 +136,12 @@ class TaskManager:
         mcp_tools = ""
         if self.mcp and with_mcp:
             mcp_tools = self.mcp.get_tools_prompt()
-        system_prompt = get_system_prompt(self.tips_manager.current_tips, self.api_prompt, self.settings.get('system_prompt'), mcp_tools=mcp_tools)
+        system_prompt = get_system_prompt(
+            self.tips_manager.current_tips,
+            self.api_prompt,
+            self.settings.get('system_prompt'),
+            mcp_tools=mcp_tools
+        )
 
         task = Task(self)
         task.client = self.client_manager.Client()

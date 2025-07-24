@@ -11,5 +11,5 @@ wheels/
 
 .DS_Store
 work/
-client.crt
 
+aipyapp/__version__.py

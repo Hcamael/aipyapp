@@ -5,6 +5,7 @@ import time
 from collections import Counter
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
+from typing import Union, List, Dict, Any
 
 from loguru import logger
 
@@ -13,7 +14,7 @@ from .. import T
 @dataclass
 class ChatMessage:
     role: str
-    content: str
+    content: Union[str, List[Dict[str, Any]]]
     reason: str = None
     usage: Counter = field(default_factory=Counter)
 
@@ -27,6 +28,7 @@ class BaseClient(ABC):
         self.log = logger.bind(src='llm', name=self.name)
         self.console = None
         self.config = config
+        self.kind = config.get("type", "openai")
         self.max_tokens = config.get("max_tokens")
         self._model = config.get("model") or self.MODEL
         self._timeout = config.get("timeout")
@@ -40,7 +42,6 @@ class BaseClient(ABC):
             self._params.update(self.PARAMS)
         if config.get("params"):
             self._params.update(config.get("params"))
-        self.log.info(f"Params: {self._params}")
         temperature = config.get("temperature")
         if temperature != None and temperature >= 0 and temperature <= 1:
             self._params['temperature'] = temperature
@@ -54,7 +55,7 @@ class BaseClient(ABC):
         return self._base_url
     
     def __repr__(self):
-        return f"{self.__class__.__name__}<{self.name}>: ({self._model}, {self.max_tokens}, {self._base_url})"
+        return f"{self.__class__.__name__}<{self.name}/{self.kind}>: ({self._model}, {self.max_tokens}, {self.base_url})"
     
     def get_base_url(self):
         return self.config.get("base_url") or self.BASE_URL

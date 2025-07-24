@@ -25,57 +25,6 @@ CONFIG_FILE_NAME = f"{__PACKAGE_NAME__}.toml"
 USER_CONFIG_FILE_NAME = "user_config.toml"
 MCP_CONFIG_FILE_NAME = "mcp.json"
 
-def get_tt_aio_api(tt_api_key) -> dict:
-    """
-    获取 TrustToken AIO API Key
-    :param tt_api_key: API Key
-
-    """
-    if not tt_api_key:
-        return {}
-
-    search_url = f"{T('https://sapi.trustoken.ai/aio-api')}/search/unified"
-    geoip_url = f"{T('https://sapi.trustoken.ai/aio-api')}/ipgeo"
-    amap_url = f"{T('https://sapi.trustoken.ai/aio-api')}/amap"
-    tt_aio_api = {
-        'tt_aio_map': {
-            'env': {'tt_aio_map': [tt_api_key, "最新地图API Key"]},
-            'desc': f"""高德地图（地理编码、驾车、骑行、步行、公交路线规划，周边关键字搜索，天气查询，交通态势、店铺查询, 无法确定POI分类编码时请用关键字搜索API)，**参数中的origin、destination都是坐标**
-当需要访问`https://restapi.amap.com/`时，请使用`{amap_url}/`代替，两者API接口完全一致""",
-        },
-        'tt_aio_geoip':{
-            'env': {'tt_aio_geoip': [tt_api_key, "最新IP地理位置API Key"]},
-            'desc': f"""如果任务中涉及到位置，但没有指定具体位置，可以用此接口获取地理位置信息，包括国家、省份、城市等信息。接口调用示例如下：
-curl -H 'Authorization: Bearer xxx' {geoip_url}
-响应数据如下：{{"city": "成都", "country": "中国", "ip": "171.2.1.1", "isp": "电信", "latitude": "32.676235", "longitude": "103.058986", "province": "四川", "version": 4}}""",
-        },
-        'tt_aio_search': {
-            'env': {'tt_aio_search': [tt_api_key, "Trustoken网络搜索API Key"]},
-            'desc': f"""联网搜索服务，用于搜索网络信息, **注意：1. 用户指定了搜索引擎时，请勿使用此API；2. 不支持指定时间、网站搜索**。仅在必须联网搜索时调用，接口调用示例如下：
-curl  -X POST {search_url} \
---header "Authorization: Bearer xxxxx" \
---header "Content-Type: application/json" \
---data '{{"query": "网络搜索内容", "contents":{{"markdownText":true}}}}'
-接口返回的数据样例：
-{{
-"pageItems": [{{
-    "title": "网页标题",
-    "link": "https://...",
-    "snippet": "网页摘要",
-    "publishedTime": "2025-03-09T22:13:38+08:00",
-    "markdownText": "网页内容",
-    "images": [
-        "图片地址"
-    ],
-    "hostname": "网站名",
-}}]
-}}""",
-        },
-    }
-
-    return tt_aio_api
-
-
 def init_config_dir():
     """
     获取平台相关的配置目录，并确保目录存在

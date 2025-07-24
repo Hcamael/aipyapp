@@ -79,6 +79,7 @@ class PythonExecutor():
         try:
             with self.block_importer, self.runtime_importer:
                 exec(co, gs)
+            self.block_importer.add_module(block.name, co)
         except (SystemExit, Exception) as e:
             result['errstr'] = str(e)
             result['traceback'] = traceback.format_exc()
@@ -93,8 +94,6 @@ class PythonExecutor():
 
         vars = runtime.current_state
         if vars:
-            if vars.get('success'):
-                self.block_importer.add_module(block.name, co)
             result['__state__'] = self.filter_result(vars)
 
         return result
