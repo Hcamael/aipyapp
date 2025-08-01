@@ -16,10 +16,10 @@ class BaseConfig:
 
     def load_config(self) -> Dict:
         if self.config_file.exists():
-            with open(self.config_file, 'r') as f:
+            with open(self.config_file, 'r', encoding='utf-8') as f:
                 return json.load(f)
         return {}
 
     def save_config(self, config: Dict):
-        with open(self.config_file, 'w') as f:
+        with open(self.config_file, 'w', encoding='utf-8') as f:
             json.dump(config, f, indent=2)
