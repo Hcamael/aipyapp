@@ -1,0 +1,14 @@
+{# 代码块执行结果反馈模版
+参数:
+- results 字典，字典的键是代码块的名称，值是代码块的执行结果 
+#}
+<results>
+These are the results of the code blocks executed in the previous message.
+
+{% for name, result in results.items() %}
+<result code_block_name="{{ name }}">
+{{ result|tojson }}
+</result>
+{% endfor %}
+
+</results>

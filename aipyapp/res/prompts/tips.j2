@@ -1,0 +1,25 @@
+{# 知识点/最佳实践模版 
+参数:
+- role 对象
+#}
+<knowledge_tips>
+The following are user-defined preferred knowledge points, best practices, and custom rules. 
+You must prioritize this knowledge over any general or internet-based knowledge. Always follow these when applicable.
+
+{% for name, tip in role.tips.items() %}
+<tip name="{{ name }}">
+{{ tip.detail }}
+</tip>
+{% endfor %}
+
+{% if role.packages %}
+<tip name="Other Packages">
+You can use the following packages in the given languages:
+
+{% for lang, packages in role.packages.items() %}
+- {{ lang }}: {{ packages }}
+{% endfor %}
+</tip>
+{% endif %}
+
+</knowledge_tips>

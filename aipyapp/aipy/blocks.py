@@ -73,8 +73,7 @@ class CodeBlock:
         return f"<CodeBlock name={self.name}, version={self.version}, lang={self.lang}, path={self.path}>"
 
 class CodeBlocks:
-    def __init__(self, console):
-        self.console = console
+    def __init__(self):
         self.history = []
         self.blocks = OrderedDict()
         self.code_pattern = re.compile(
@@ -95,7 +94,7 @@ class CodeBlocks:
                 start_meta = json.loads(start_json)
                 end_meta = json.loads(end_json)
             except json.JSONDecodeError as e:
-                self.console.print_exception(show_locals=True)
+                self.log.exception('Error parsing code block', start_json=start_json, end_json=end_json)
                 error = {'JSONDecodeError': {'Block-Start': start_json, 'Block-End': end_json, 'reason': str(e)}}
                 errors.append(error)
                 continue
@@ -108,11 +107,14 @@ class CodeBlocks:
                 continue
 
             version = start_meta.get("version", 1)
-            if (code_name in blocks or code_name in self.blocks) and version == self.blocks.get(code_name).version:
-                self.log.error("Duplicate code name with same version", code_name=code_name, version=version)
-                error = {'Duplicate code name with same version': {'code_name': code_name, 'version': version}}
-                errors.append(error)
-                continue
+            if code_name in blocks or code_name in self.blocks:
+                old_block = blocks.get(code_name) or self.blocks.get(code_name)
+                old_version = old_block.version
+                if old_version >= version:
+                    self.log.error("Duplicate code name with same or newer version", code_name=code_name, old_version=old_version, version=version)
+                    error = {'Duplicate code name with same or newer version': {'code_name': code_name, 'old_version': old_version, 'version': version}}
+                    errors.append(error)
+                    continue
 
             # 创建代码块对象
             block = CodeBlock(
@@ -182,7 +184,6 @@ class CodeBlocks:
             return self.blocks[code_name].code
         except KeyError:
             self.log.error("Code name not found", code_name=code_name)
-            self.console.print("❌ Code name not found", code_name=code_name)
             return None
 
     def get_block_by_name(self, code_name):
@@ -190,7 +191,6 @@ class CodeBlocks:
             return self.blocks[code_name]
         except KeyError:
             self.log.error("Code name not found", code_name=code_name)
-            self.console.print("❌ Code name not found", code_name=code_name)
             return None
 
     def to_list(self):

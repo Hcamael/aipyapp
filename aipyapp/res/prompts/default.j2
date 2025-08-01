@@ -1,0 +1,8 @@
+{# 默认系统提示模版，包含LLM、通信、客户端三个模版 #}
+<system_prompt>
+{% include "llm.j2" %}
+{% include "communication.j2" %}
+{% include "client.j2" %}
+{% include "services.j2" %}
+{% include "tips.j2" %}
+</system_prompt>

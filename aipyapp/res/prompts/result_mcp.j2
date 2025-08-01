@@ -1,0 +1,9 @@
+{# MCP 工具调用结果反馈模版
+参数:
+- result 字典，MCP 工具调用结果
+#}
+<result_mcp>
+The following is the result of the MCP tool call:
+
+{{ result|tojson }}
+</result_mcp>

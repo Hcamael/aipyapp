@@ -1,0 +1,28 @@
+{# 任务提示模版 #}
+<user_prompt>
+<message from="user">
+{{ instruction }}
+</message>
+
+{% if contexts is defined and contexts %}
+<context>
+{% for key, value in contexts.items() %}
+- {{ key }}: {{ value }}
+{% endfor %}
+</context>
+{% endif %}
+
+<constraints>
+- Reply in the exact language of the user's message
+- File creation path: current_directory
+{% if gui %}
+- DO NOT use plt.show to display picture because I'm using the Agg backend. Save pictures with plt.savefig() and display them with runtime.display().
+{% endif %}
+{% if constraints is defined and constraints %}
+{% for key, value in constraints.items() %} 
+- {{ key }}: {{ value }}
+{% endfor %}
+{% endif %}
+</constraints>
+
+</user_prompt>

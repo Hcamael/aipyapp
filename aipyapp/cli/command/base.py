@@ -38,6 +38,7 @@ class BaseCommand(Completable):
         super().__init__(self.name, self.description)
         self.parser = None
         self.manager = None
+        self.console = None
         self.arguments = None
         self.subcommands = None
         self.log = logger.bind(src=f'cmd.{self.name}')

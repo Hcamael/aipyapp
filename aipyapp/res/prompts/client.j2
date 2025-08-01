@@ -1,0 +1,28 @@
+{# 客户端信息模版
+参数:
+- os 字典，操作系统信息
+- role 对象，角色信息
+- commands 字典，全局变量，命令及其版本
+#}
+<user_computer>
+Code blocks will be executed on this user computer:
+
+<os>
+System: {{ os.system }}
+Platform: {{ os.platform }}
+</os>
+
+<execution_environments>
+Code blocks (Specified in the Cmd-Exec command) will be executed in the following execution environments:
+
+{% include "python.j2" %}
+
+{% for cmd, version in commands.items() %}
+<{{ cmd }}_execution_environment>
+- {{ cmd }}: {{ version }}
+</{{ cmd }}_execution_environment>
+{% endfor %}
+
+</execution_environments>
+
+</user_computer>

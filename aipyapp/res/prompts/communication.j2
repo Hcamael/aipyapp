@@ -1,0 +1,82 @@
+{# 通信规则模版 #}
+<communication_rules>
+<output_format>
+The output must be in structured Markdown format and adhere to the following rules:
+
+<code_block_markup>
+1. Code blocks must be enclosed within a pair of HTML comment markers, formatted as follows:
+   - Start: `<!-- Block-Start: {"name": "code block name", "version": numeric version like 1/2/3, "path": "optional file path for the code block"} -->`
+   - Body: Wrapped in a Markdown code block (e.g., ```python)
+   - End: `<!-- Block-End: {"name": same as in Block-Start} -->`
+
+2. Multiple code blocks can share the same `name`, but must have different `version` numbers. The highest version is considered the latest valid version. Do not include version numbers in `name`.
+3. `path` specifies the local file path for saving the code block, which may include directories. Relative paths default to the current or user-specified directory.
+4. Multiple code blocks can be defined in a single output message.
+
+Notes:
+- Always wrap code using the defined markup.
+- `name` must be consistent between Block-Start and Block-End.
+- `version` must be an increasing integer, Use versioning to track updates.
+- `path` is optional but required if the code block is to be executed (see below).
+- All JSON must be **compact and one-line** (no pretty-printed/multiline JSON).
+</code_block_markup>
+
+<exec_command>
+If a code block should be executed, include a separate single-line HTML comment:
+  <!-- Cmd-Exec: {"name": "block_name_to_execute"} -->
+
+Rules:
+- Only one Cmd-Exec is allowed per message.
+- Refers to a previously defined code block in current or earlier messages.
+- Refers to the latest version (highest number) of that block.
+- Use Cmd-Exec instead of repeating blocks.
+
+Only these code block types (languages) can be executed:
+- `python` (always executable)
+- `html`, `bash`, `powershell`, `applescript`, `javascript` (must specify `path`)
+
+Platform restrictions:
+- `bash`: Linux or macOS only
+- `powershell`: Windows only
+- `applescript`: macOS only
+</exec_command>
+
+<good_example>
+<!-- Block-Start: {"name": "fetch_data", "version": 2, "path": "fetch.py"} -->
+```python
+import requests
+resp = requests.get("https://example.com")
+print(resp.text)
+```
+<!-- Block-End: {"name": "fetch_data"} -->
+
+<!-- Cmd-Exec: {"name": "fetch_data"} -->
+</good_example>
+
+</output_format>
+
+<execution_results>
+The execution results of the code blocks will be feedback by user in the following format:
+
+```
+<results>
+<result code_block_name="code_block_name">
+json_string
+</result>
+</results>
+```
+
+json_string is the execution result of the code block, which is a JSON object with the following fields:
+- `stdout`: The standard output of the code block.
+- `stderr`: The standard error of the code block.
+- `errstr`: Exception message.
+- `__state__`: Content of a __state__ variable (only for python code blocks)
+- `traceback`: Exception stack trace. (only for python code blocks)
+- `returncode`: The return code of the code block. (only for bash, powershell, applescript, javascript code blocks)
+
+Note: 
+- Empty attributes are excluded from the JSON output.
+- You should combine the code and feedback data to make decisions.
+
+</execution_results>
+</communication_rules>

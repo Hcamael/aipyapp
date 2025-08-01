@@ -10,23 +10,23 @@ import base64
 import mimetypes
 import traceback
 import threading
-from typing import List
+from typing import Dict, Any
 
 import wx
 import wx.html2
 import matplotlib
 import matplotlib.pyplot as plt
 from loguru import logger
-from rich.console import Console
 from wx.lib.newevent import NewEvent
 from wx.lib.agw.hyperlink import HyperLinkCtrl
 from wx import FileDialog, FD_SAVE, FD_OVERWRITE_PROMPT
 
 from .. import __version__, T, set_lang, get_lang, __respath__
 from ..aipy.config import ConfigManager, CONFIG_DIR
-from ..aipy import TaskManager, event_bus
+from ..aipy import TaskManager
 from . import ConfigDialog, ApiMarketDialog, show_provider_config, AboutDialog, CStatusBar
 from ..config import LLMConfig
+from ..display import DisplayManager
 
 ChatEvent, EVT_CHAT = NewEvent()
 matplotlib.use('Agg')
@@ -52,7 +52,7 @@ class AIPython(threading.Thread):
         self.tm = gui.tm
         self._task = None
         self._busy = threading.Event()
-        plt.show = self.on_plt_show
+        plt.show = self.plt_show
         sys.modules["matplotlib.pyplot"] = plt
         self.log = logger.bind(src='aipython')
 
@@ -68,7 +68,7 @@ class AIPython(threading.Thread):
     def can_done(self):
         return not self._busy.is_set() and self.has_task()
 
-    def on_plt_show(self, *args, **kwargs):
+    def plt_show(self, *args, **kwargs):
         filename = f'{time.strftime("%Y%m%d_%H%M%S")}.png'
         plt.savefig(filename)
         user = 'BB-8'
@@ -88,14 +88,15 @@ class AIPython(threading.Thread):
         evt = ChatEvent(user=user, msg=msg)
         wx.PostEvent(self.gui, evt)
 
-    def on_response_complete(self, msg):
-        user = T("Turing") #msg['llm']
-        #content = f"```markdown\n{msg['content']}\n```"
-        evt = ChatEvent(user=user, msg=msg['content'])
+    def on_stream(self, msg):
+        user = T("Turing")
+        content = '\n'.join(msg['lines'])
+        evt = ChatEvent(user=user, msg=content)
         wx.PostEvent(self.gui, evt)
 
-    def on_summary(self, summary):
+    def on_round_end(self, data: Dict[str, Any], response: str):
         user = T("AIPy")
+        summary = data.get('summary')
         evt = ChatEvent(user=user, msg=f'{T("End processing instruction")} {summary}')
         wx.PostEvent(self.gui, evt)
 
@@ -105,19 +106,15 @@ class AIPython(threading.Thread):
         evt = ChatEvent(user=user, msg=content)
         wx.PostEvent(self.gui, evt)
 
-    def on_result(self, result):
+    def on_exec_result(self, data: Dict[str, Any]):
         user = 'BB-8'
+        result = data.get('result')
         content = json.dumps(result, indent=4, ensure_ascii=False)
         content = f'{T("Run result")}\n```json\n{content}\n```'
         evt = ChatEvent(user=user, msg=content)
         wx.PostEvent(self.gui, evt)
 
     def run(self):
-        event_bus.register("response_stream", self.on_response_complete)
-        event_bus.register("exec", self.on_exec)
-        event_bus.register("result", self.on_result)
-        event_bus.register("summary", self.on_summary)
-        event_bus.register("display", self.on_display)
         while True:
             instruction = self.gui.get_task()
             if instruction in ('/done', 'done'):
@@ -134,6 +131,7 @@ class AIPython(threading.Thread):
                 try:
                     if not self._task:
                         self._task = self.tm.new_task()
+                        self._task.register_listener(self)
                     self._task.run(instruction)
                 except Exception as e:
                     self.log.exception('Error running task')
@@ -573,15 +571,17 @@ def main(args):
     settings.auto_install = True
     settings.auto_getenv = True
 
-    file = None if args.debug else open(os.devnull, 'w', encoding='utf-8')
-    console = Console(file=file, record=True)
-    console.gui = True
+    # 初始化显示效果管理器
+    display_style = settings.get('display', 'classic')
+    display_manager = DisplayManager(display_style, quiet=True)
+
     try:
-        tm = TaskManager(settings, console=console, gui=True)
+        tm = TaskManager(settings)
     except Exception as e:
         traceback.print_exc()
         return
     tm.config_manager = conf
     tm.llm_config = llm_config
+    tm.set_display_manager(display_manager)
     ChatFrame(tm)
     app.MainLoop()

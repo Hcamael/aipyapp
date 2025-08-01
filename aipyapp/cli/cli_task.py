@@ -1,16 +1,18 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+from importlib.resources import read_text
+
 from rich.console import Console
 from prompt_toolkit import PromptSession
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.styles import Style
-from prompt_toolkit.completion import WordCompleter, merge_completers
 
 from ..aipy import TaskManager, ConfigManager, CONFIG_DIR
-from .. import T, set_lang, __version__
+from .. import T, set_lang, __version__, __respkg__
 from ..config import LLMConfig
 from ..aipy.wizard import config_llm
 from .command import CommandManager, TaskCommandManager
+from ..display import DisplayManager
 
 STYLE_MAIN = {
     'completion-menu.completion': 'bg:#000000 #ffffff',
@@ -37,8 +39,8 @@ class InteractiveConsole():
         self.settings = settings
         self.style_main = Style.from_dict(STYLE_MAIN)
         self.style_task = Style.from_dict(STYLE_AI)
-        self.command_manager_main = CommandManager(tm)
-        self.command_manager_task = TaskCommandManager(tm)
+        self.command_manager_main = CommandManager(tm, console)
+        self.command_manager_task = TaskCommandManager(tm, console)
         self.completer_main = self.command_manager_main
         self.completer_task = self.command_manager_task
         self.session = PromptSession(history=self.history, completer=self.completer_main, style=self.style_main)
@@ -114,6 +116,7 @@ class InteractiveConsole():
 def main(args):
     console = Console(record=True)
     console.print(f"[bold cyan]🚀 Python use - AIPython ({__version__}) [[green]https://aipy.app[/green]]")
+    console.print(read_text(__respkg__, "logo.txt"))
     conf = ConfigManager(args.config_dir)
     settings = conf.get_config()
     lang = settings.get('lang')
@@ -138,13 +141,18 @@ def main(args):
     settings.gui = False
     settings.debug = args.debug
     settings.config_dir = CONFIG_DIR
-    
+
+    # 初始化显示效果管理器
+    display_style = settings.get('display', 'classic')
+    display_manager = DisplayManager(display_style, console=console)
+   
     try:
-        tm = TaskManager(settings, console=console)
+        tm = TaskManager(settings)
     except Exception as e:
         console.print_exception()
         return
-
+    
+    tm.set_display_manager(display_manager)
     update = tm.get_update()
     if update and update.get('has_update'):
         console.print(f"[bold red]🔔 号外❗ {T('Update available')}: {update.get('latest_version')}")

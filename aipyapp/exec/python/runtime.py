@@ -24,21 +24,59 @@ class PythonRuntime(ABC):
         self.block = block
 
     def set_state(self, success: bool, **kwargs) -> None:
-        """设置当前代码块的执行状态"""
+        """
+        Set the state of the current code block
+
+        Args:
+            success: Whether the code block is successful
+            **kwargs: Other state values
+
+        Example:
+            set_state(success=True, result="Hello, world!")
+            set_state(success=False, error="Error message")
+        """
         self.current_state['success'] = success
         self.current_state.update(kwargs)
 
     def get_block_state(self, block_name: str) -> Any:
-        """获取上一个代码块的状态值"""
+        """
+        Get the state of code block by name
+
+        Args:
+            block_name: The name of the code block
+
+        Returns:
+            Any: The state of the code block
+
+        Example:
+            state = get_block_state("code_block_name")
+            if state.get("success"):
+                print(state.get("result"))
+            else:
+                print(state.get("error"))
+        """
         return self.block_states.get(block_name)
     
     def set_persistent_state(self, **kwargs) -> None:
-        """设置在整个会话中持久化的状态值"""
+        """
+        Set the state of the current code block in the session
+
+        Args:
+            **kwargs: The state values
+        """
         self.session.update(kwargs)
         self.block.add_dep('set_state', list(kwargs.keys()))
 
     def get_persistent_state(self, key: str) -> Any:
-        """获取会话中保存的持久化的状态值"""
+        """
+        Get the state of the current code block in the session
+
+        Args:
+            key: The key of the state
+
+        Returns:
+            Any: The state of the code block
+        """
         self.block.add_dep('get_state', key)
         return self.session.get(key)
 

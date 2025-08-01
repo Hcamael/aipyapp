@@ -47,7 +47,7 @@ class OllamaClient(BaseClient):
                 "model": self._model,
                 "messages": messages,
                 "stream": self._stream,
-                "options": {"num_predict": self.max_tokens}
+                "options": {"num_predict": self.max_tokens, "temperature": self._temperature}
             },
             timeout=self._timeout,
             **self._params

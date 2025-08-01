@@ -45,7 +45,7 @@ def init_config_dir():
 
 CONFIG_DIR = init_config_dir()
 PLUGINS_DIR = CONFIG_DIR / "plugins"
-TIPS_DIR = CONFIG_DIR / "tips"
+ROLES_DIR = CONFIG_DIR / "roles"
 
 def get_config_file_path(config_dir=None, file_name=CONFIG_FILE_NAME, create=True):
     """

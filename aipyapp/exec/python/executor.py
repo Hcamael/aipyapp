@@ -50,7 +50,7 @@ class PythonExecutor():
         self.log = logger.bind(src='PythonExecutor')
         self._globals = {'__name__': '__main__', 'input': self.runtime.input}
         self.block_importer = DictModuleImporter()
-        self.runtime_importer = ObjectImporter({'runtime': runtime})
+        self.runtime_importer = ObjectImporter({'utils': runtime})
         exec(INIT_IMPORTS, self._globals)
 
     def __repr__(self):

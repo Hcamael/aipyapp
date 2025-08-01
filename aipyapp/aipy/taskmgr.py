@@ -4,52 +4,116 @@
 import os
 from pathlib import Path
 from collections import deque, namedtuple
+from dataclasses import dataclass
+from typing import Optional, Any
 
 from loguru import logger
 
-from .. import T
 from .task import Task
 from .plugin import PluginManager
-from .prompt import get_system_prompt
+from .prompts import Prompts
 from .diagnose import Diagnose
 from .llm import ClientManager
-from .config import PLUGINS_DIR, TIPS_DIR, get_mcp_config_file, get_tt_api_key
-from .tips import TipsManager
+from .config import PLUGINS_DIR, ROLES_DIR, get_mcp_config_file, get_tt_api_key
+from .role import RoleManager
 from .mcp_tool import MCPToolManager
+
+@dataclass
+class TaskContext:
+    """任务上下文，包含创建任务所需的所有信息"""
+    settings: Any
+    cwd: Path
+    plugin_manager: PluginManager
+    display_manager: Any
+    client_manager: ClientManager
+    role_manager: RoleManager
+    diagnose: Diagnose
+    mcp: Optional[MCPToolManager]
+    prompts: Prompts
 
 class TaskManager:
     MAX_TASKS = 16
 
-    def __init__(self, settings, console, gui=False):
+    def __init__(self, settings):
+        # 核心配置
         self.settings = settings
-        self.console = console
-        self.tasks = deque(maxlen=self.MAX_TASKS)
-        self.envs = {}
-        self.gui = gui
         self.log = logger.bind(src='taskmgr')
-        self.api_prompt = None
-        self.config_files = settings._loaded_files
-        self.plugin_manager = PluginManager(PLUGINS_DIR)
-        self.plugin_manager.load_plugins()
-        if settings.workdir:
-            workdir = Path.cwd() / settings.workdir
+        
+        # 任务管理
+        self.tasks = deque(maxlen=self.MAX_TASKS)
+        self.current_task: Optional[Task] = None
+        
+        # 工作环境
+        self._init_workenv()
+        
+        # 初始化各种管理器
+        self._init_managers()
+        
+        # 创建任务上下文
+        self.task_context = self._create_task_context()
+
+    def _init_workenv(self):
+        """初始化工作环境"""
+        # 环境变量
+        envs = self.settings.get('environ', {})
+        for name, value in envs.items():
+            os.environ[name] = value
+
+        if self.settings.workdir:
+            workdir = Path.cwd() / self.settings.workdir
             workdir.mkdir(parents=True, exist_ok=True)
             os.chdir(workdir)
             self.cwd = workdir
         else:
             self.cwd = Path.cwd()
-        self._init_environ()
-        self.tt_api_key = get_tt_api_key(settings)
-        # 始终初始化MCPToolManager，内置工具也需要它
-        mcp_config_file = get_mcp_config_file(settings.get('_config_dir'))
-        self.mcp = MCPToolManager(mcp_config_file, self.tt_api_key)
-        self._init_api()
-        self.diagnose = Diagnose.create(settings)
-        self.client_manager = ClientManager(settings)
-        self.tips_manager = TipsManager(TIPS_DIR)
-        self.tips_manager.load_tips()
-        self.tips_manager.use(settings.get('role', 'aipy'))
-        self.task = None
+
+    def set_display_manager(self, display_manager):
+        self.display_manager = display_manager
+        self.task_context.display_manager = display_manager
+
+    def _init_managers(self):
+        """初始化各种管理器"""
+        # 插件管理器
+        self.plugin_manager = PluginManager(PLUGINS_DIR)
+        self.plugin_manager.load_plugins()
+
+        self.display_manager = None
+
+        # 诊断器
+        self.diagnose = Diagnose.create(self.settings)
+        
+        # 客户端管理器
+        self.client_manager = ClientManager(self.settings)
+        
+        # 角色管理器
+        api_conf = self.settings.get('api', {})
+        self.role_manager = RoleManager(ROLES_DIR, api_conf)
+        self.role_manager.load_roles()
+        self.role_manager.use(self.settings.get('role', 'aipy'))
+        
+        # MCP 工具管理器
+        mcp_config_file = get_mcp_config_file(self.settings.get('_config_dir'))
+        self.mcp = MCPToolManager(mcp_config_file, get_tt_api_key(self.settings))
+        
+        # 提示管理器
+        self.prompts = Prompts()
+
+    def _create_task_context(self) -> TaskContext:
+        """创建任务上下文"""
+        # 构建系统提示
+        with_mcp = self.settings.get('mcp', {}).get('enable', True)
+        
+        return TaskContext(
+            settings=self.settings,
+            cwd=self.cwd,
+            plugin_manager=self.plugin_manager,
+            display_manager=self.display_manager,
+            client_manager=self.client_manager,
+            role_manager=self.role_manager,
+            diagnose=self.diagnose,
+            mcp=self.mcp if with_mcp else None,
+            prompts=self.prompts
+        )
 
     @property
     def workdir(self):
@@ -64,7 +128,7 @@ class TaskManager:
     def list_envs(self):
         EnvRecord = namedtuple('EnvRecord', ['Name', 'Description', 'Value'])
         rows = []
-        for name, (value, desc) in self.envs.items():    
+        for name, (value, desc) in self.role_manager.current_role.env.items():    
             rows.append(EnvRecord(name, desc, value[:32]))
         return rows
     
@@ -84,70 +148,30 @@ class TaskManager:
         return self.diagnose.check_update(force)
 
     def use(self, llm=None, role=None, task=None):
+        rets = {}
         if llm:
             ret = self.client_manager.use(llm)
-            self.console.print(f"LLM: {'[green]Ok[/green]' if ret else '[red]Error[/red]'}")
+            rets['llm'] = ret
         if role:
-            ret = self.tips_manager.use(role)
-            self.console.print(f"Role: {'[green]Ok[/green]' if ret else '[red]Error[/red]'}")
+            ret = self.role_manager.use(role)
+            rets['role'] = ret
         if task:
             task = self.get_task_by_id(task)
-            self.console.print(f"Task: {'[green]Ok[/green]' if task else '[red]Error[/red]'}")
-            self.task = task
-
-    def _init_environ(self):
-        envs = self.settings.get('environ', {})
-        for name, value in envs.items():
-            os.environ[name] = value
-
-    def _init_api(self):
-        api = self.settings.get('api', {})
-
-        lines = []
-        for api_name, api_conf in api.items():
-            lines.append(f"## {api_name} API")
-            desc = api_conf.get('desc')
-            if desc:
-                lines.append(f"### API {T('Description')}\n{desc}")
-
-            envs = api_conf.get('env')
-            if not envs:
-                continue
-
-            lines.append(f"### {T('Environment variable name and meaning')}")
-            for name, (value, desc) in envs.items():
-                value = value.strip()
-                if not value:
-                    continue
-                lines.append(f"- {name}: {desc}")
-                self.envs[name] = (value, desc)
-
-        self.api_prompt = "\n".join(lines)
+            rets['task'] = task
+            self.current_task = task
+        return rets
 
     def new_task(self):
-        if self.task:
-            task = self.task
-            self.task = None
+        """创建新任务"""
+        # 如果有当前任务，返回它
+        if self.current_task:
+            task = self.current_task
+            self.current_task = None
             self.log.info('Reload task', task_id=task.task_id)
             return task
 
-        with_mcp = self.settings.get('mcp', {}).get('enable', True)
-
-        mcp_tools = ""
-        if self.mcp and with_mcp:
-            mcp_tools = self.mcp.get_tools_prompt()
-        system_prompt = get_system_prompt(
-            self.tips_manager.current_tips,
-            self.api_prompt,
-            self.settings.get('system_prompt'),
-            mcp_tools=mcp_tools
-        )
-
-        task = Task(self)
-        task.client = self.client_manager.Client()
-        task.diagnose = self.diagnose
-        task.system_prompt = system_prompt
-        task.mcp = self.mcp if with_mcp else None
+        # 创建新任务
+        task = Task(self.task_context)
         self.tasks.append(task)
         self.log.info('New task created', task_id=task.task_id)
         return task

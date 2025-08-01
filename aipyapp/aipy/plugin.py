@@ -2,54 +2,10 @@
 # -*- coding: utf-8 -*-
 
 import os
-import threading
-import traceback
 import importlib.util
-from typing import Callable, Any, Dict, List
+from typing import Dict, Any
 
-class EventBus:
-    def __init__(self):
-        self._listeners: Dict[str, List[Callable[..., Any]]] = {}
-        self._stop_event = threading.Event()
-
-    def stop(self):
-        self._stop_event.set()
-
-    def is_stopped(self):
-        return self._stop_event.is_set()    
-
-    def __repr__(self):
-        return repr(self._listeners)
-    
-    def register(self, event_name: str, handler: Callable[..., Any]):
-        self._listeners.setdefault(event_name, []).append(handler)
-
-    def broadcast(self, event_name: str, *args, **kwargs):
-        for handler in self._listeners.get(event_name, []):
-            try:
-                handler(*args, **kwargs)
-            except Exception as e:
-                traceback.print_exc()
-
-    def pipeline(self, event_name: str, data, **kwargs):
-        for handler in self._listeners.get(event_name, []):
-            try:
-                handler(data, **kwargs)
-            except Exception as e:
-                traceback.print_exc()
-
-    def collect(self, event_name: str, *args, **kwargs):
-        try:
-            ret = [handler(*args, **kwargs) for handler in self._listeners.get(event_name, [])]
-        except Exception as e:
-            ret = []
-            traceback.print_exc()
-        return ret
-
-    def __call__(self, event_name: str, *args, **kwargs):
-        self.pipeline(event_name, *args, **kwargs)
-
-event_bus = EventBus()
+from loguru import logger
 
 class PluginManager:
     def __init__(self, plugin_dir: str):
@@ -58,6 +14,7 @@ class PluginManager:
         self.sys_plugin_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'plugins')
         self.plugin_dir = plugin_dir
         self.plugins: Dict[str, Any] = {}
+        self.logger = logger.bind(src=self.__class__.__name__)
 
     def load_plugins(self):
         """Load plugins from the plugin directory."""
@@ -70,22 +27,28 @@ class PluginManager:
 
 
     def _load_plugin(self, filepath: str):
-        plugin_id = os.path.basename(filepath)[:-3]
+        name = os.path.basename(filepath)[:-3]
 
-        spec = importlib.util.spec_from_file_location(plugin_id, filepath)
+        spec = importlib.util.spec_from_file_location(name, filepath)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
 
         plugin_cls = getattr(module, "Plugin", None)
         if not plugin_cls or not callable(plugin_cls):
+            self.logger.warning(f"Plugin {name} is not a callable class")
             return
 
-        plugin = plugin_cls()
+        plugin_name = getattr(plugin_cls, "name", name)
+        if plugin_name:
+            name = plugin_name
 
-        for attr_name in dir(plugin):
-            if attr_name.startswith("on_") and len(attr_name) > 3:
-                handler = getattr(plugin, attr_name)
-                if callable(handler):
-                    event_bus.register(attr_name[3:], handler)
+        self.plugins[name] = plugin_cls
+        self.logger.info(f"Loaded plugin {name}")
 
-        self.plugins[plugin_id] = plugin
+    def get_plugin(self, name: str, plugin_config: Dict[str, Any] = None):
+        plugin_cls = self.plugins.get(name)
+        if not plugin_cls:
+            self.logger.warning(f"Plugin {name} not found")
+            return
+
+        return plugin_cls(plugin_config)

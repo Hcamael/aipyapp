@@ -3,6 +3,9 @@
 
 import threading
 from abc import ABC, abstractmethod
+from typing import Callable, Any, Dict, List
+
+from loguru import logger
 
 class Runtime(ABC):
     @abstractmethod
@@ -28,6 +31,7 @@ class ConsoleInterface(ABC):
 
 class Stoppable():
     def __init__(self):
+        super().__init__()
         self._stop_event = threading.Event()
 
     def on_stop(self):
@@ -45,3 +49,45 @@ class Stoppable():
     
     def reset(self):
         self._stop_event.clear()
+
+class EventBus:
+    def __init__(self):
+        super().__init__()
+        self._listeners: Dict[str, List[Callable[..., Any]]] = {}
+        self._eb_logger = logger.bind(src=self.__class__.__name__)
+    
+    def register_event(self, event_name: str, handler: Callable[..., Any]):
+        self._listeners.setdefault(event_name, []).append(handler)
+
+    def register_listener(self, obj: Any):
+        for event_name in dir(obj):
+            if event_name.startswith('on_'):
+                handler = getattr(obj, event_name)
+                if callable(handler):
+                    event_name = event_name[3:]
+                    self.register_event(event_name, handler)
+                    self._eb_logger.info(f"Registered event {event_name} for {obj.__class__.__name__}")
+                else:
+                    self._eb_logger.warning(f"Event {event_name} is not callable for {obj.__class__.__name__}")
+
+    def broadcast(self, event_name: str, *args, **kwargs):
+        for handler in self._listeners.get(event_name, []):
+            try:
+                handler(*args, **kwargs)
+            except Exception as e:
+                self._eb_logger.exception(f"Error broadcasting event {event_name}")
+
+    def pipeline(self, event_name: str, data, **kwargs):
+        for handler in self._listeners.get(event_name, []):
+            try:
+                handler(data, **kwargs)
+            except Exception as e:
+                self._eb_logger.exception(f"Error pipeline event {event_name}")
+
+    def collect(self, event_name: str, *args, **kwargs):
+        try:
+            ret = [handler(*args, **kwargs) for handler in self._listeners.get(event_name, [])]
+        except Exception as e:
+            ret = []
+            self._eb_logger.exception(f"Error collecting event {event_name}")
+        return ret

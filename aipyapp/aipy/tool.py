@@ -1,10 +1,8 @@
 import inspect
-import logging
 from typing import Any, Callable, Dict, Optional, List 
 
 from loguru import logger
 from pydantic import create_model, ValidationError
-
 
 # 函数注册表：func_name -> meta 信息
 LLM_FUNCTION_REGISTRY: Dict[str, Dict[str, Any]] = {}
@@ -20,7 +18,6 @@ class FunctionNotFoundError(LLMCallError):
 class ParameterValidationError(LLMCallError):
     """参数验证异常"""
     pass
-
 
 def llm_callable(group: str = "default") -> Callable:
     def decorator(fn: Callable) -> Callable:
@@ -126,7 +123,6 @@ def get_llm_tools_multimodal_prompt(group: Optional[str] = None) -> str:
         lines.append(schema_json)
         lines.append("-" * 30)
     return "\n".join(lines)
-
 
 def register_instance_method(obj: Any, method_name: str, group: str = "default"):
     method = getattr(obj, method_name, None)

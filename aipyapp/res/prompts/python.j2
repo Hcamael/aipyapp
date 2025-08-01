@@ -1,0 +1,54 @@
+{# 
+参数:
+- Python 字典：
+    - python_version: 字符串，Python 版本
+    - util_functions: 字典，工具函数列表
+    - tool_functions: 字典，工具函数列表
+#}
+{% set preinstalled_packages = "requests,numpy,pandas,matplotlib,seaborn,bs4,yaml,openai,jinja2" %}
+<python_execution_environment>
+Python version: {{ python_version }}
+
+<packages_and_modules>
+- modules and packages in the standard library
+- the following third-party packages: {{ preinstalled_packages }}
+- `utils` module in `aipyapp` package
+</packages_and_modules>
+
+<utils_module>
+The `utils` module is a custom Python module providing a collection of pre-implemented, stable, and reliable functions for common tasks. 
+The `utils` module is pre-installed in the local environment. Import it with `from aipyapp import utils`.
+
+<functions>
+The `utils` module provides the following functions:
+
+{% for name, func in util_functions.items() %}
+- {{ name }}({{ func.signature }})
+    - {{ func.docstring }}
+{% endfor %}
+</functions>
+</utils_module>
+
+{% set envs = role.envs %}
+{% if envs %}
+<envs>
+You may only access the following user-provided environment variables via `utils.get_env`:
+
+{% for name, env in envs.items() %}
+- {{ name }}: {{ env[1] }}
+{% endfor %}
+</envs>
+{% endif %}
+
+{% if tool_functions is defined and tool_functions %}
+<tool_functions>
+These functions are provided by the python execution environment. You can call them with `utils.call_tool` function.
+
+{% for name, func in tool_functions.items() %}
+- {{ name }}({{ func.signature }})
+    - {{ func.docstring }}
+{% endfor %}
+</tool_functions>
+{% endif %}
+
+</python_execution_environment>

@@ -54,6 +54,14 @@ class MoonShotClient(OpenAIBaseClient):
     BASE_URL = T('https://api.moonshot.ai/v1')
     MODEL = 'kimi-latest'
 
+class BigModelClient(OpenAIBaseClient): 
+    BASE_URL = 'https://open.bigmodel.cn/api/paas/v4'
+    MODEL = 'glm-4.5-air'
+
+class ZClient(OpenAIBaseClient):
+    BASE_URL = 'https://api.z.ai/api/paas/v4'
+    MODEL = 'glm-4.5-flash'
+
 CLIENTS = {
     "openai": OpenAIClient,
     "ollama": OllamaClient,
@@ -64,6 +72,8 @@ CLIENTS = {
     'trust': TrustClient,
     'azure': AzureOpenAIClient,
     'doubao': DoubaoClient,
-    'kimi': MoonShotClient
+    'kimi': MoonShotClient,
+    'bigmodel': BigModelClient,
+    'z': ZClient
 }
 

@@ -120,7 +120,7 @@ class MMContent:
     
     def _process_file_item(self, item: Dict[str, Any]) -> Dict[str, Any]:
         """处理文件项（仅二进制文件）"""
-        return {"type": "file", "file": {"path": item['path']}}
+        return {"type": "text", "text": f"file: {item['path']}"}
 
     def _process_document_item(self, item: Dict[str, Any]) -> Dict[str, Any]:
         """处理文本文件项（document）"""
@@ -142,20 +142,26 @@ class MMContent:
         - 图片：image_url，自动转data url
         - 文本文件（document）：转为text类型，内容包裹在<document>标签
         - 文件（如PDF等二进制）：file类型
+        - 文本文件（document）：转为text类型，内容包裹在<document>标签
+        - 文件（如PDF等二进制）：file类型
         """
-        if not self.is_multimodal:
-            return self.string
-        
         results = []
+        has_image = False
         for item in self.items:
             if item['type'] == 'text':
                 result = self._process_text_item(item)
             elif item['type'] == 'image':
+                has_image = True
                 result = self._process_image_item(item)
             elif item['type'] == 'document':
                 result = self._process_document_item(item)
             else:
+                # TODO: 处理其他类型
                 result = self._process_file_item(item)
             results.append(result)
+
+        if not has_image:
+            texts = [r['text'] for r in results if r['type'] == 'text']
+            return '\n'.join(texts)
         return results
     

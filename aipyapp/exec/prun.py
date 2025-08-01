@@ -43,6 +43,8 @@ class SubprocessExecutor:
                 shell=False,
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
+                errors="ignore",
                 timeout=self.timeout
             )
             stdout = cp.stdout.strip() if cp.stdout else None

@@ -4,13 +4,99 @@ from collections import Counter, defaultdict, namedtuple
 from typing import Union, List, Dict, Any
 
 from loguru import logger
-from rich.live import Live
-from rich.text import Text
 
 from .. import T, __respath__
-from .plugin import event_bus
 from ..llm import CLIENTS, ChatMessage, ModelRegistry, ModelCapability
 from .multimodal import LLMContext
+
+class LineReceiver(list):
+    def __init__(self):
+        super().__init__()
+        self.buffer = ""
+
+    @property
+    def content(self):
+        return '\n'.join(self)
+    
+    def feed(self, data: str):
+        self.buffer += data
+        new_lines = []
+
+        while '\n' in self.buffer:
+            line, self.buffer = self.buffer.split('\n', 1)
+            if line:
+                self.append(line)
+                new_lines.append(line)
+
+        return new_lines
+    
+    def empty(self):
+        return not self and not self.buffer
+    
+    def done(self):
+        buffer = self.buffer
+        if buffer:
+            self.append(buffer)
+            self.buffer = ""
+        return buffer
+
+class StreamProcessor:
+    """流式数据处理器，负责处理 LLM 流式响应并发送事件"""
+    
+    def __init__(self, task, name):
+        self.task = task
+        self.name = name
+        self.lr = LineReceiver()
+        self.lr_reason = LineReceiver()
+
+    @property
+    def content(self):
+        return self.lr.content
+    
+    @property
+    def reason(self):
+        return self.lr_reason.content
+    
+    def __enter__(self):
+        """支持上下文管理器协议"""
+        self.task.broadcast('stream_start', {'llm': self.name})
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """支持上下文管理器协议"""
+        if self.lr.buffer:
+            self.process_chunk('\n')        
+        self.task.broadcast('stream_end', {'llm': self.name})
+    
+    def process_chunk(self, content, *, reason=False):
+        """处理流式数据块并发送事件"""
+        if not content: 
+            return
+
+        # 处理思考内容的结束
+        if not reason and self.lr.empty() and not self.lr_reason.empty():
+            line = self.lr_reason.done()
+            if line:
+                self.task.broadcast('stream', {
+                    'llm': self.name, 
+                    'lines': [line, "\n\n----\n\n"], 
+                    'reason': True
+                })
+
+        # 处理当前数据块
+        lr = self.lr_reason if reason else self.lr
+        lines = lr.feed(content)
+        if not lines:
+            return
+        
+        # 过滤掉特殊注释行
+        lines2 = [line for line in lines if not line.startswith('<!-- Block-') and not line.startswith('<!-- Cmd-')]
+        if lines2:
+            self.task.broadcast('stream', {
+                'llm': self.name, 
+                'lines': lines2, 
+                'reason': reason
+            })
 
 class ChatHistory:
     def __init__(self):
@@ -42,98 +128,7 @@ class ChatHistory:
     def get_messages(self):
         return [{"role": msg.role, "content": msg.content} for msg in self.messages]
 
-class LineReceiver(list):
-    def __init__(self):
-        super().__init__()
-        self.buffer = ""
 
-    @property
-    def content(self):
-        return '\n'.join(self)
-    
-    def feed(self, data: str):
-        self.buffer += data
-        new_lines = []
-
-        while '\n' in self.buffer:
-            line, self.buffer = self.buffer.split('\n', 1)
-            self.append(line)
-            new_lines.append(line)
-
-        return new_lines
-    
-    def empty(self):
-        return not self and not self.buffer
-    
-    def done(self):
-        buffer = self.buffer
-        if buffer:
-            self.append(buffer)
-            self.buffer = ""
-        return buffer
-
-class LiveManager:
-    def __init__(self, name, quiet=False):
-        self.live = None
-        self.name = name
-        self.lr = LineReceiver()
-        self.lr_reason = LineReceiver()
-        self.title = f"{self.name} {T('Reply')}"
-        self.reason_started = False
-        self.display_lines = []
-        self.max_lines = 10
-        self.quiet = quiet
-
-    @property
-    def content(self):
-        return self.lr.content
-    
-    @property
-    def reason(self):
-        return self.lr_reason.content
-    
-    def __enter__(self):
-        if self.quiet: return self
-        self.live = Live(auto_refresh=False, vertical_overflow='crop', transient=True)
-        self.live.__enter__()
-        return self
-
-    def process_chunk(self, content, *, reason=False):
-        if not content: return
- 
-        if not reason and self.lr.empty() and not self.lr_reason.empty():
-            line = self.lr_reason.done()
-            event_bus.broadcast('response_stream', {'llm': self.name, 'content': f"{line}\n\n----\n\n", 'reason': True})
-
-        lr = self.lr_reason if reason else self.lr
-        lines = lr.feed(content)
-        if not lines: return
-
-        lines2 = [line for line in lines if not line.startswith('<!-- Block-') and not line.startswith('<!-- Cmd-')]
-        if lines2:
-            content = '\n'.join(lines2)
-            event_bus.broadcast('response_stream', {'llm': self.name, 'content': content, 'reason': reason})
-
-        if self.quiet: return
-
-        if reason and not self.reason_started:
-            self.display_lines.append("<think>")
-            self.reason_started = True
-        elif not reason and self.reason_started:
-            self.display_lines.append("</think>")
-            self.reason_started = False
-
-        self.display_lines.extend(lines)
-        while len(self.display_lines) > self.max_lines:
-            self.display_lines.pop(0)
-        content = '\n'.join(self.display_lines)
-        self.live.update(Text(content, style="dim white"), refresh=True)
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        if self.lr.buffer:
-            self.process_chunk('\n')
-        if self.live:
-            self.live.__exit__(exc_type, exc_val, exc_tb)
 
 class ClientManager(object):
     MAX_TOKENS = 8192
@@ -211,8 +206,8 @@ class ClientManager(object):
     def get_client(self, name):
         return self.clients.get(name)
     
-    def Client(self):
-        return Client(self)
+    def Client(self, task):
+        return Client(self, task)
     
     def to_records(self):
         LLMRecord = namedtuple('LLMRecord', ['Name', 'Model', 'Max_Tokens', 'Base_URL'])
@@ -225,9 +220,10 @@ class ClientManager(object):
         return self.model_registry.get_model_info(model)
     
 class Client:
-    def __init__(self, manager: ClientManager):
+    def __init__(self, manager: ClientManager, task):
         self.manager = manager
         self.current = manager.current
+        self.task = task
         self.history = ChatHistory()
         self.log = logger.bind(src='client', name=self.current.name)
 
@@ -270,12 +266,8 @@ class Client:
         
         return any(capability in model_info.capabilities for capability in capabilities)
     
-    def __call__(self, content: LLMContext, *, system_prompt=None, quiet=False):
+    def __call__(self, content: LLMContext, *, system_prompt=None):
         client = self.current
-        stream_processor = LiveManager(client.name, quiet=quiet)
+        stream_processor = StreamProcessor(self.task, client.name)
         msg = client(self.history, content, system_prompt=system_prompt, stream_processor=stream_processor)
-        if msg:
-            event_bus.broadcast('response_complete', {'llm': client.name, 'content': msg})
-        else:
-            self.log.error(f"LLM: {client.name} response is None")
         return msg

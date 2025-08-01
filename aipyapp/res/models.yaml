@@ -192,3 +192,32 @@ Doubao:
       input: 0.60
       cached: 0.03
       output: 6.00
+
+Zhipu:
+  glm-4.5:
+    description: 总参数达 3550 亿，激活参数为 320 亿
+    capabilities: [TEXT, FUNCTION_CALLING, STRUCTURED_OUTPUT, REASONING]
+    context_length: 131072
+    max_output_tokens: 98304
+    currency: CNY
+    prices:
+      input: 4
+      cached: 0.8
+      output: 16
+
+  glm-4.5-air:
+    description: 总参数为 1060 亿，激活参数为 120 亿
+    capabilities: [TEXT, FUNCTION_CALLING, STRUCTURED_OUTPUT, REASONING]
+    context_length: 131072
+    max_output_tokens: 98304
+    currency: CNY
+    prices:
+      input: 1.2
+      cached: 0.24
+      output: 8
+
+  glm-4.5-flash:
+    description: 免费 高效 多功能
+    capabilities: [TEXT, FUNCTION_CALLING, STRUCTURED_OUTPUT, REASONING]
+    context_length: 131072
+    max_output_tokens: 98304

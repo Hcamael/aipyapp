@@ -21,7 +21,7 @@ class ChatMessage:
 class BaseClient(ABC):
     MODEL = None
     BASE_URL = None
-    PARAMS = {}
+    TEMPERATURE = 0.5
 
     def __init__(self, config):
         self.name = config['name']
@@ -37,14 +37,10 @@ class BaseClient(ABC):
         self._stream = config.get("stream", True)
         self._tls_verify = bool(config.get("tls_verify", True))
         self._client = None
-        self._params = {}
-        if self.PARAMS:
-            self._params.update(self.PARAMS)
-        if config.get("params"):
-            self._params.update(config.get("params"))
-        temperature = config.get("temperature")
-        if temperature != None and temperature >= 0 and temperature <= 1:
-            self._params['temperature'] = temperature
+        params = self.get_params()
+        params.update(config.get("params", {}))
+        self._params = params
+        self._temperature = params.get("temperature") or self.TEMPERATURE
 
     @property
     def model(self):
@@ -56,6 +52,9 @@ class BaseClient(ABC):
     
     def __repr__(self):
         return f"{self.__class__.__name__}<{self.name}/{self.kind}>: ({self._model}, {self.max_tokens}, {self.base_url})"
+    
+    def get_params(self):
+        return {}
     
     def get_base_url(self):
         return self.config.get("base_url") or self.BASE_URL

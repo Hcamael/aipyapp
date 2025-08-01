@@ -13,7 +13,12 @@ from . import BaseClient, ChatMessage
 # https://platform.openai.com/docs/api-reference/chat/create
 # https://api-docs.deepseek.com/api/create-chat-completion
 class OpenAIBaseClient(BaseClient):
-    PARAMS = {'stream_options': {'include_usage': True}}
+    """ OpenAI compatible client """
+    
+    def get_params(self):
+        params = {'stream_options': {'include_usage': True}}
+        params.update(super().get_params())
+        return params
     
     def usable(self):
         return super().usable() and self._api_key
@@ -83,6 +88,7 @@ class OpenAIBaseClient(BaseClient):
             messages = messages,
             stream=self._stream,
             max_tokens = self.max_tokens,
+            temperature = self._temperature,
             **self._params
         )
         return response
