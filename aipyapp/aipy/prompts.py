@@ -131,7 +131,7 @@ class Prompts:
         :param instruction: 上一次的回复
         :return: 渲染后的字符串
         """
-        return self.get_prompt('chat', instruction=instruction, content=content)
+        return self.get_prompt('chat', initial_task=instruction, instruction=content)
     
 if __name__ == '__main__':
     prompts = Prompts()

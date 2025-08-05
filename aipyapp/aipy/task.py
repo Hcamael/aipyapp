@@ -111,7 +111,7 @@ class Task(Stoppable, EventBus):
             self.broadcast('exception', 'save_html', e)
         
     def _auto_save(self):
-        event_bus.broadcast('auto_save', self)
+        # event_bus.broadcast('auto_save', self)
         instruction = self.instruction
         task = OrderedDict()
         task['instruction'] = instruction
