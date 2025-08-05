@@ -76,39 +76,39 @@ class AIPython(threading.Thread):
         evt = ChatEvent(user=user, msg=content)
         wx.PostEvent(self.gui, evt)
 
-    def on_display(self, image):
+    def on_show_image(self, event):
         user = T("Turing")
-        if image['path']:
-            base64_data = image_to_base64(image['path'])
-            content = base64_data if base64_data else image['path']
+        if event.data['path']:
+            base64_data = image_to_base64(event.data['path'])
+            content = base64_data if base64_data else event.data['path']
         else:
-            content = image['url']
+            content = event.data['url']
 
         msg = f'![图片]({content})'
         evt = ChatEvent(user=user, msg=msg)
         wx.PostEvent(self.gui, evt)
 
-    def on_stream(self, msg):
+    def on_stream(self, event):
         user = T("Turing")
-        content = '\n'.join(msg['lines'])
+        content = '\n'.join(event.data['lines'])
         evt = ChatEvent(user=user, msg=content)
         wx.PostEvent(self.gui, evt)
 
-    def on_round_end(self, data: Dict[str, Any], response: str):
+    def on_round_end(self, event):
         user = T("AIPy")
-        summary = data.get('summary')
-        evt = ChatEvent(user=user, msg=f'{T("End processing instruction")} {summary}')
+        summary = event.data.get('summary')
+        evt = ChatEvent(user=user, msg=f'{T("End processing instruction")} {summary.get("summary")}')
         wx.PostEvent(self.gui, evt)
 
-    def on_exec(self, block):
+    def on_exec(self, event ):
         user = 'BB-8'
-        content = f"```{block.lang}\n{block.code}\n```"
+        content = f"```{event.data['block'].lang}\n{event.data['block'].code}\n```"
         evt = ChatEvent(user=user, msg=content)
         wx.PostEvent(self.gui, evt)
 
-    def on_exec_result(self, data: Dict[str, Any]):
+    def on_exec_result(self, event):
         user = 'BB-8'
-        result = data.get('result')
+        result = event.data.get('result')
         content = json.dumps(result, indent=4, ensure_ascii=False)
         content = f'{T("Run result")}\n```json\n{content}\n```'
         evt = ChatEvent(user=user, msg=content)
@@ -576,12 +576,11 @@ def main(args):
     display_manager = DisplayManager(display_style, quiet=True)
 
     try:
-        tm = TaskManager(settings)
+        tm = TaskManager(settings, display_manager=display_manager)
     except Exception as e:
         traceback.print_exc()
         return
     tm.config_manager = conf
     tm.llm_config = llm_config
-    tm.set_display_manager(display_manager)
     ChatFrame(tm)
     app.MainLoop()

@@ -1,0 +1,9 @@
+{% if errors %}
+<message_parse_error>
+The following error occurred while parsing the response message:
+
+{{ errors|tojson }}
+
+Please fix the error and try again.
+</message_parse_error>
+{% endif %}

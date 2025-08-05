@@ -1,13 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-from collections import Counter, defaultdict, namedtuple
-from typing import Union, List, Dict, Any
+from collections import defaultdict, namedtuple
 
 from loguru import logger
 
 from .. import T, __respath__
-from ..llm import CLIENTS, ChatMessage, ModelRegistry, ModelCapability
+from ..llm import CLIENTS, ModelRegistry, ModelCapability
 from .multimodal import LLMContext
+from .context_manager import ContextManager, ContextConfig
 
 class LineReceiver(list):
     def __init__(self):
@@ -59,14 +59,14 @@ class StreamProcessor:
     
     def __enter__(self):
         """支持上下文管理器协议"""
-        self.task.broadcast('stream_start', {'llm': self.name})
+        self.task.broadcast('stream_start', llm=self.name)
         return self
     
     def __exit__(self, exc_type, exc_val, exc_tb):
         """支持上下文管理器协议"""
         if self.lr.buffer:
             self.process_chunk('\n')        
-        self.task.broadcast('stream_end', {'llm': self.name})
+        self.task.broadcast('stream_end', llm=self.name)
     
     def process_chunk(self, content, *, reason=False):
         """处理流式数据块并发送事件"""
@@ -77,11 +77,7 @@ class StreamProcessor:
         if not reason and self.lr.empty() and not self.lr_reason.empty():
             line = self.lr_reason.done()
             if line:
-                self.task.broadcast('stream', {
-                    'llm': self.name, 
-                    'lines': [line, "\n\n----\n\n"], 
-                    'reason': True
-                })
+                self.task.broadcast('stream', llm=self.name, lines=[line, "\n\n----\n\n"], reason=True)
 
         # 处理当前数据块
         lr = self.lr_reason if reason else self.lr
@@ -92,42 +88,7 @@ class StreamProcessor:
         # 过滤掉特殊注释行
         lines2 = [line for line in lines if not line.startswith('<!-- Block-') and not line.startswith('<!-- Cmd-')]
         if lines2:
-            self.task.broadcast('stream', {
-                'llm': self.name, 
-                'lines': lines2, 
-                'reason': reason
-            })
-
-class ChatHistory:
-    def __init__(self):
-        self.messages = []
-        self._total_tokens = Counter()
-
-    def __len__(self):
-        return len(self.messages)
-    
-    def json(self):
-        return [msg.__dict__ for msg in self.messages]
-    
-    def add(self, role, content):
-        self.add_message(ChatMessage(role=role, content=content))
-
-    def add_message(self, message: ChatMessage):
-        self.messages.append(message)
-        self._total_tokens += message.usage
-
-    def get_usage(self):
-        return iter(row.usage for row in self.messages if row.role == "assistant")
-    
-    def get_summary(self):
-        summary = {'time': 0, 'input_tokens': 0, 'output_tokens': 0, 'total_tokens': 0}
-        summary.update(dict(self._total_tokens))
-        summary['rounds'] = sum(1 for row in self.messages if row.role == "assistant")
-        return summary
-
-    def get_messages(self):
-        return [{"role": msg.role, "content": msg.content} for msg in self.messages]
-
+            self.task.broadcast('stream', llm=self.name, lines=lines2, reason=reason)
 
 
 class ClientManager(object):
@@ -140,6 +101,28 @@ class ClientManager(object):
         self.log = logger.bind(src='client_manager')
         self.names = self._init_clients(settings)
         self.model_registry = ModelRegistry(__respath__ / "models.yaml")
+        
+        # 读取上下文管理配置
+        self.context_config = self._get_context_config(settings)
+    
+    def _get_context_config(self, settings):
+        """从设置中读取上下文管理配置"""
+        context_settings = settings.get('context_manager', {})
+        
+        config = ContextConfig(
+            max_tokens=context_settings.get('max_tokens', self.MAX_TOKENS),
+            max_rounds=context_settings.get('max_rounds', 10),
+            auto_compress=context_settings.get('auto_compress', False),
+            compression_ratio=context_settings.get('compression_ratio', 0.3),
+            importance_threshold=context_settings.get('importance_threshold', 0.5),
+            summary_max_length=context_settings.get('summary_max_length', 200),
+            preserve_system=context_settings.get('preserve_system', True),
+            preserve_recent=context_settings.get('preserve_recent', 3)
+        )
+        strategy = context_settings.get('strategy', 'hybrid')
+        if not config.set_strategy(strategy):
+            self.log.warning(f"Invalid strategy: {strategy}, using default strategy")
+        return config
 
     def _create_client(self, config):
         kind = config.get("type", "openai")
@@ -224,8 +207,24 @@ class Client:
         self.manager = manager
         self.current = manager.current
         self.task = task
-        self.history = ChatHistory()
+        
+        # 创建上下文管理器（包含ChatHistory）
+        self.context_manager = ContextManager(manager.context_config)
+        
         self.log = logger.bind(src='client', name=self.current.name)
+
+    def __len__(self):
+        return len(self.context_manager.chat_history.messages)
+    
+    def delete_range(self, start_index, end_index):
+        self.context_manager.delete_range(start_index, end_index)
+    
+    def clear(self):
+        self.context_manager.clear()
+    
+    def add_message(self, message):
+        """添加消息"""
+        self.context_manager.add_message(message)
 
     @property
     def name(self):
@@ -269,5 +268,23 @@ class Client:
     def __call__(self, content: LLMContext, *, system_prompt=None):
         client = self.current
         stream_processor = StreamProcessor(self.task, client.name)
-        msg = client(self.history, content, system_prompt=system_prompt, stream_processor=stream_processor)
+        
+        # 直接传递 ContextManager，它已经实现了所需的接口
+        msg = client(self.context_manager, content, system_prompt=system_prompt, stream_processor=stream_processor)
         return msg
+    
+    def get_state(self):
+        """获取需要持久化的状态数据"""
+        return {
+            'context_manager': self.context_manager.get_state(),
+        }
+    
+    def restore_state(self, state_data):
+        """从状态数据恢复客户端状态"""
+        if not state_data:
+            return
+
+        # 恢复上下文管理器（包含聊天历史）
+        if 'context_manager' in state_data:
+            self.context_manager.restore_state(state_data['context_manager'])
+        

@@ -7,7 +7,6 @@ import inspect
 
 from term_image.image import from_file, from_url
 
-from . import utils
 from .tool import llm_call
 from .. import T
 from ..exec import PythonRuntime
@@ -30,12 +29,9 @@ class CliPythonRuntime(PythonRuntime):
         super().__init__(task.role.envs)
         self.gui = task.gui
         self.task = task
+        self.display = task.display
         self._auto_install = task.settings.get('auto_install')
         self._auto_getenv = task.settings.get('auto_getenv')
-
-    def _get_display_plugin(self):
-        """获取当前显示插件"""
-        return self.task.display
 
     @restore_output
     def install_packages(self, *packages: str) -> bool:
@@ -55,45 +51,47 @@ class CliPythonRuntime(PythonRuntime):
             False
         """
         message = f"\n⚠️ LLM {T('Request to install third-party packages')}: {packages}"
-        self.task.broadcast('runtime_message', {'type': 'install_packages', 'message': message, 'packages': packages})
+        self.task.broadcast('runtime_message', message=message)
         
-        display_plugin = self._get_display_plugin()
-        prompt = f"💬 {T('If you agree, please enter')} 'y'> "
-        ok = display_plugin.confirm(prompt, auto=self._auto_install)
+        if self.display:
+            prompt = f"💬 {T('If you agree, please enter')} 'y'> "
+            ok = self.display.confirm(prompt, auto=self._auto_install)
+        else:
+            ok = True
             
         if ok:
             ret = self.ensure_packages(*packages)
             result_message = "\n✅" if ret else "\n❌"
-            self.task.broadcast('runtime_message', {'type': 'install_result', 'message': result_message, 'success': ret})
+            self.task.broadcast('runtime_message', message=result_message)
             return ret
         return False
     
     @restore_output
     def get_env(self, name: str, default: str = None, *, desc: str = None) -> Union[str, None]:
         message = f"\n⚠️ LLM {T('Request to obtain environment variable {}, purpose', name)}: {desc}"
-        self.task.broadcast('runtime_message', {'type': 'get_env', 'message': message, 'name': name, 'desc': desc})
+        self.task.broadcast('runtime_message', message=message)
         
-        display_plugin = self._get_display_plugin()
-            
         try:
             value = self.envs[name][0]
             success_message = f"✅ {T('Environment variable {} exists, returned for code use', name)}"
-            self.task.broadcast('runtime_message', {'type': 'env_exists', 'message': success_message, 'name': name})
+            self.task.broadcast('runtime_message', message=success_message)
         except KeyError:
             if self._auto_getenv:
                 auto_message = f"✅ {T('Auto confirm')}"
-                self.task.broadcast('runtime_message', {'type': 'auto_confirm', 'message': auto_message})
+                self.task.broadcast('runtime_message', message=auto_message)
                 value = None
-            else:
+            elif self.display:
                 prompt = f"💬 {T('Environment variable {} not found, please enter', name)}: "
-                value = display_plugin.input(prompt)
+                value = self.display.input(prompt)
                 value = value.strip()
+            else:
+                value = None
             if value:
                 self.set_env(name, value, desc)
         return value or default
     
     @restore_output
-    def display(self, path: str = None, url: str = None) -> None:
+    def show_image(self, path: str = None, url: str = None) -> None:
         """
         Display an image
 
@@ -101,17 +99,17 @@ class CliPythonRuntime(PythonRuntime):
             path: The path of the image
             url: The URL of the image
         """
-        image = {'path': path, 'url': url}
-        self.task.broadcast('display', image)
+        self.task.broadcast('show_image', path=path, url=url)
         if not self.gui:
             image = from_file(path) if path else from_url(url)
             image.draw()
 
     @restore_output
     def input(self, prompt: str) -> str:
-        self.task.broadcast('runtime_input', {'prompt': prompt})
-        display_plugin = self._get_display_plugin()
-        return display_plugin.input(prompt)
+        self.task.broadcast('runtime_input', prompt=prompt)
+        if self.display:
+            return self.display.input(prompt)
+        return None
     
     def get_block_by_name(self, block_name: str) -> Union[CodeBlock, None]:
         """
@@ -144,7 +142,7 @@ class CliPythonRuntime(PythonRuntime):
         根据函数签名和docstring，生成函数调用提示
         """
         functions = {}
-        names = ['set_state', 'get_block_state', 'set_persistent_state', 'get_persistent_state', 'install_packages', 'get_env', 'display', 'get_block_by_name']
+        names = ['set_state', 'get_block_state', 'set_persistent_state', 'get_persistent_state', 'install_packages', 'get_env', 'show_image', 'get_block_by_name']
         for name in names:
             func_obj = getattr(self, name)
             docstring = func_obj.__doc__

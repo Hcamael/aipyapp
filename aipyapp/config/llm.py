@@ -37,6 +37,9 @@ PROVIDERS = {
         "models_endpoint": "/models",
         "type": "gemini"
     },
+    "OAuth2": {
+        "type": "oauth2"
+    }
 }
 
 def get_providers():

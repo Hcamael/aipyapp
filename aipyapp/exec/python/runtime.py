@@ -121,7 +121,7 @@ class PythonRuntime(ABC):
         pass
     
     @abstractmethod
-    def display(self, path: str = None, url: str = None) -> None:
+    def show_image(self, path: str = None, url: str = None) -> None:
         pass
 
     @abstractmethod

@@ -1,7 +1,7 @@
 from ... import T
-from .base import BaseCommand
+from .base_parser import ParserCommand
 
-class UseCommand(BaseCommand):
+class UseCommand(ParserCommand):
     name = 'use'
     description = T('Use a LLM or a role')
 
@@ -13,7 +13,7 @@ class UseCommand(BaseCommand):
         parser.add_argument('--role', choices=roles.keys(), help=T('Role name'))
         parser.add_argument('name', choices=names['enabled'], nargs='?', help=T('LLM name'))
 
-    def execute(self, args):
+    def execute(self, args, context=None):
         tm = self.manager.tm
 
         params = {}

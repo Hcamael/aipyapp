@@ -1,11 +1,10 @@
 from rich import print
-from rich.table import Table
 
 from ... import T
-from .base import BaseCommand
+from .base_parser import ParserCommand
 from .utils import print_table
 
-class ToolsCommand(BaseCommand):
+class ToolsCommand(ParserCommand):
     name = 'tools'
     description = T('Tools operations')
 

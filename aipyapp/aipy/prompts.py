@@ -13,6 +13,8 @@ from datetime import datetime
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
+from .. import __respath__
+
 def check_commands(commands):
     """
     检查多个命令是否存在，并获取其版本号。
@@ -46,8 +48,8 @@ def check_commands(commands):
 
 class Prompts:
     def __init__(self, template_dir: str = None):
-        if template_dir is None:
-            template_dir = os.path.join(os.path.dirname(__file__), '../res/prompts')
+        if not template_dir:
+            template_dir = __respath__ / 'prompts'
         self.template_dir = os.path.abspath(template_dir)
         self.env = Environment(
             loader=FileSystemLoader(self.template_dir),
@@ -94,10 +96,10 @@ class Prompts:
         all_vars = {**extra_vars, **kwargs}
         return self.get_prompt('default', **all_vars)
 
-    def get_task_prompt(self, content: str, gui: bool = False) -> str:
+    def get_task_prompt(self, instruction: str, gui: bool = False) -> str:
         """
         获取任务提示
-        :param content: 用户输入的字符串
+        :param instruction: 用户输入的字符串
         :param gui: 是否使用 GUI 模式
         :return: 渲染后的字符串
         """
@@ -106,7 +108,7 @@ class Prompts:
         if not gui:
             contexts['TERM'] = os.environ.get('TERM', 'unknown')
         constraints = {}
-        return self.get_prompt('task', instruction=content, contexts=contexts, constraints=constraints, gui=gui)
+        return self.get_prompt('task', instruction=instruction, contexts=contexts, constraints=constraints, gui=gui)
     
     def get_results_prompt(self, results: dict) -> str:
         """
@@ -124,14 +126,22 @@ class Prompts:
         """
         return self.get_prompt('result_mcp', result=result)
     
-    def get_chat_prompt(self, content: str, instruction: str) -> str:
+    def get_chat_prompt(self, instruction: str, task: str) -> str:
         """
         获取聊天提示
-        :param content: 用户输入的字符串
-        :param instruction: 上一次的回复
+        :param instruction: 用户输入的字符串
+        :param task: 初始任务
         :return: 渲染后的字符串
         """
-        return self.get_prompt('chat', initial_task=instruction, instruction=content)
+        return self.get_prompt('chat', instruction=instruction, initial_task=task)
+    
+    def get_parse_error_prompt(self, errors: list) -> str:
+        """
+        获取消息解析错误提示
+        :param errors: 错误列表
+        :return: 渲染后的字符串
+        """
+        return self.get_prompt('parse_error', errors=errors)
     
 if __name__ == '__main__':
     prompts = Prompts()

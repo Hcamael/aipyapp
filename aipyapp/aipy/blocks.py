@@ -85,6 +85,9 @@ class CodeBlocks:
         )
         self.log = logger.bind(src='code_blocks')
 
+    def __len__(self):
+        return len(self.blocks)
+    
     def parse(self, markdown_text, parse_mcp=False):
         blocks = OrderedDict()
         errors = []
@@ -201,3 +204,45 @@ class CodeBlocks:
         """
         blocks = [block.to_dict() for block in self.history]
         return blocks
+    
+    def get_state(self):
+        """获取需要持久化的状态数据"""
+        return self.to_list()
+    
+    def restore_state(self, blocks_data):
+        """从代码块数据恢复状态"""
+        self.history.clear()
+        self.blocks.clear()
+        
+        if blocks_data:
+            for block_data in blocks_data:
+                code_block = CodeBlock(
+                    name=block_data['name'],
+                    version=block_data['version'],
+                    lang=block_data['lang'],
+                    code=block_data['code'],
+                    path=block_data.get('path'),
+                    deps=block_data.get('deps')
+                )
+                self.history.append(code_block)
+                self.blocks[code_block.name] = code_block
+    
+    def delete_range(self, start_index, end_index):
+        """删除指定范围的代码块"""
+        if start_index < 0 or end_index > len(self.history) or start_index >= end_index:
+            return
+        
+        # 获取要删除的代码块
+        deleted_blocks = self.history[start_index:end_index]
+        
+        # 从 blocks 字典中删除对应的代码块
+        for block in deleted_blocks:
+            if block.name in self.blocks:
+                del self.blocks[block.name]
+        
+        # 从 history 列表中删除指定范围
+        self.history = self.history[:start_index] + self.history[end_index:]
+
+    def clear(self):
+        self.history.clear()
+        self.blocks.clear()

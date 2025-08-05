@@ -7,6 +7,7 @@ from .base import ChatMessage, BaseClient
 from .base_openai import OpenAIBaseClient
 from .client_claude import ClaudeClient
 from .client_ollama import OllamaClient
+from .client_oauth2 import OAuth2Client
 from .models import ModelRegistry, ModelCapability
 
 __all__ = ['ChatMessage', 'CLIENTS', 'ModelRegistry', 'ModelCapability']
@@ -71,6 +72,7 @@ CLIENTS = {
     'grok': GrokClient,
     'trust': TrustClient,
     'azure': AzureOpenAIClient,
+    'oauth2': OAuth2Client,
     'doubao': DoubaoClient,
     'kimi': MoonShotClient,
     'bigmodel': BigModelClient,

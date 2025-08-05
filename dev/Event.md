@@ -1,60 +1,132 @@
 # Event 描述
 
-在 AiPy 中全局对象 `event_bus` 负责事件注册和通知。
-主要有以下事件调用方式和事件类型：
+在 AiPy 中，Task对象负责事件注册和通知。事件通过 `Event` 对象传递，所有事件处理函数统一接收 `event: Event` 参数，通过 `event.data` 获取具体数据。
 
-# Event 调用方式
-## pipeline
-`pipeline` 调用方式的传入参数是 `dict` ，每个插件都能修改,流水线处理事件，返回最终结果。
+## Event 对象
 
-## broadcast
-`broadcast` 调用方式的传入参数是 `*args, **kwargs`， 广播消息给每个插件进行处理。
+- `event.name`：事件名称（如 "exception"、"task_start" 等）
+- `event.data`：事件数据（dict，包含所有参数）
 
-# Event 类型
-## task_start
+## Event 调用方式
+
+### pipeline
+- 用于串行处理，每个插件可修改数据，返回最终结果。
+
+### broadcast
+- 用于广播通知，所有监听者都能收到。
+
+目前的实现两种方式没有区别。
+
+---
+
+## 主要事件类型与参数
+
+### exception
+- 调用方式：broadcast
+- 参数：
+  - `msg`：异常说明
+  - `exception`：异常对象（可选）
+  - `traceback`：异常堆栈字符串（可选，优先显示）
+
+### task_start
 - 调用方式：pipeline
-- 参数：prompt dict
+- 参数：
+  - `instruction`：用户输入的任务
+  - `user_prompt`：处理后的提示词
 
- `task_start`为任务开始事件，在插件中实现 `on_task_start` 方法即可用插件处理爱派任务开始的相关参数，例如改写用户任务提示词，在用户任务的提示词前后附加提示词等.   
- 
-`prompt['task']` 为用户输入的任务，`prompt` 参数包含其他例如python版本、终端、当前时间等运行环境信息。
-
-
-## exec
+### round_start
 - 调用方式：pipeline
-- 参数：blocks dict
+- 参数：
+  - `instruction`：本轮指令
+  - `user_prompt`：处理后的提示词
 
-`exec` 为 LLM 生成代码执行事件，在插件中实现 `on_exec` 方法即可用插件处理 LLM 生成的代码，例如保存代码到本地文件等。  
+### query_start
+- 调用方式：broadcast
+- 参数：无
 
-`blocks['main']` 为即将执行的代码块。
+### response_complete
+- 调用方式：broadcast
+- 参数：
+  - `llm`：LLM 名称
+  - `msg`：LLM 返回的消息对象
 
-## result
+### stream_start / stream_end
+- 调用方式：broadcast
+- 参数：
+  - `llm`：LLM 名称
+
+### stream
+- 调用方式：broadcast
+- 参数：
+  - `llm`：LLM 名称
+  - `lines`：流式内容（list）
+  - `reason`：是否为思考内容（bool，可选）
+
+### exec
 - 调用方式：pipeline
-- 参数：result dict
+- 参数：
+  - `block`：代码块对象
 
-`result` 为代码执行结果处理事件，在插件中实现 `on_result` 方法即可用插件处理代码执行的结果，例如用插件获取执行结果，生成其他格式报告等。
-
-## response_complete
+### exec_result
 - 调用方式：broadcast
-- 参数：response dict
-  - llm: LLM 名称
-  - content: LLM 返回消息的完整内容
+- 参数：
+  - `result`：执行结果（dict，可能包含 traceback）
+  - `block`：代码块对象
 
-`response_complete` 为大模型 LLM 响应结束事件，在插件中实现`on_response_complete`方法即可用插件处理大模型 LLM 的返回内容。例如保存大模型 LLM 返回内容到本地文件等
+### mcp_call / mcp_result
+- 调用方式：pipeline / broadcast
+- 参数：
+  - `block`：工具调用的代码块
+  - `result`：工具调用结果
 
-## response_stream
+### parse_reply
 - 调用方式：broadcast
-- 参数：response dict
-  - llm: LLM 名称
-  - content: LLM 返回的一行消息
-  - reazon: True/False，表示是否 Thinking 内容，只在 Thinking 内容时有该字段
+- 参数：
+  - `result`：解析结果（dict）
 
-`response_stream` 为大模型 LLM 流式响应事件，在插件中实现`on_response_stream`方法即可用插件处理大模型 LLM 的返回内容。例如保存大模型 LLM 返回内容到本地文件等
-
-## summary
+### round_end
 - 调用方式：broadcast
-- 参数：执行统计信息字符串
+- 参数：
+  - `summary`：统计信息（dict，含 tokens、耗时等）
+  - `response`：最终回复内容
 
-## display
+### task_end
 - 调用方式：broadcast
-- 参数：要显示的图片 url 或者 path
+- 参数：
+  - `path`：任务保存路径
+
+### upload_result
+- 调用方式：broadcast
+- 参数：
+  - `status_code`：上传状态码
+  - `url`：上传后的链接
+
+### runtime_message / runtime_input
+- 调用方式：broadcast
+- 参数：
+  - `message`：运行时消息内容
+
+---
+
+## 事件处理插件实现
+
+所有插件事件处理函数签名统一为：
+
+```python
+def on_xxx(self, event: Event):
+    # 通过 event.data 获取参数
+    ...
+```
+
+如：
+
+```python
+def on_exception(self, event):
+    msg = event.data.get('msg')
+    traceback_str = event.data.get('traceback')
+    ...
+```
+
+---
+
+如需详细参数说明，请参考 `aipyapp/aipy/task.py` 和 `aipyapp/display/base.py` 代码实现。

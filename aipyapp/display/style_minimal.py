@@ -19,32 +19,41 @@ class DisplayMinimal(BaseDisplayPlugin):
         self.received_lines = 0  # 记录接收的行数
         self.status = None  # Status 对象
 
-    def on_task_start(self, data: Dict[str, Any]):
+    def on_task_start(self, event):
         """任务开始事件处理"""
+        data = event.data
         instruction = data.get('instruction')
         self.console.print(f"→ {instruction}")
 
-    def on_exception(self, msg: str, exception: Exception):
+    def on_task_end(self, event):
+        """任务结束事件处理"""
+        path = event.data.get('path', '')
+        self.console.print(f"[green]{T('Task completed')}: {path}")
+
+    def on_exception(self, event):
         """异常事件处理"""
+        data = event.data
+        msg = data.get('msg', '')
         self.console.print(f"✗ {msg}", style='red')
 
-    def on_query_start(self):
+    def on_query_start(self, event):
         """查询开始事件处理"""
         self.console.print("⟳ Sending...", style='dim')
 
-    def on_round_start(self, data: Dict[str, Any]):
+    def on_round_start(self, event):
         """回合开始事件处理"""
+        data = event.data
         instruction = data.get('instruction')
         self.console.print(f"→ {instruction}")
 
-    def on_stream_start(self, response: Dict[str, Any]):
+    def on_stream_start(self, event):
         """流式开始事件处理"""
         # 简约风格：重置行数计数器并启动 Status
         self.received_lines = 0
         self.status = Status("📥 Receiving response...", console=self.console)
         self.status.start()
     
-    def on_stream_end(self, response: Dict[str, Any]):
+    def on_stream_end(self, event):
         """流式结束事件处理"""
         # 简约风格：停止 Status 并显示最终结果
         if self.status:
@@ -53,8 +62,9 @@ class DisplayMinimal(BaseDisplayPlugin):
                 self.console.print(f"📥 Received {self.received_lines} lines total", style='dim')
         self.status = None
 
-    def on_stream(self, response: Dict[str, Any]):
+    def on_stream(self, event):
         """LLM 流式响应事件处理"""
+        response = event.data
         lines = response.get('lines', [])
         reason = response.get('reason', False)
         
@@ -64,22 +74,21 @@ class DisplayMinimal(BaseDisplayPlugin):
             if self.status:
                 self.status.update(f"📥 Receiving response... ({self.received_lines} lines)")
                 
-    def on_response_complete(self, llm: str, msg: Any):
+    def on_response_complete(self, event):
         """LLM 响应完成事件处理"""
+        data = event.data
+        llm = data.get('llm', '')
+        msg = data.get('msg')
         if not msg:
             self.console.print("✗ Empty response")
             return
         if msg.role == 'error':
             self.console.print(f"✗ {msg.content}")
             return
-        if msg.reason:
-            content = f"{msg.reason}\n\n-----\n\n{msg.content}"
-        else:
-            content = msg.content
-        self.console.print(content)
 
-    def on_parse_reply(self, ret: Union[Dict[str, Any], None]):
+    def on_parse_reply(self, event):
         """消息解析结果事件处理"""
+        ret = event.data.get('result')
         if ret:
             # 简约显示：显示解析到的代码块名称
             if 'exec_blocks' in ret:
@@ -93,15 +102,17 @@ class DisplayMinimal(BaseDisplayPlugin):
             elif 'call_tool' in ret:
                 self.console.print("🔧 Tool call detected", style='dim')
 
-    def on_exec(self, block: Any):
+    def on_exec(self, event):
         """代码执行开始事件处理"""
+        block = event.data.get('block')
         # 简约显示：显示将要执行的代码块信息
         name = getattr(block, 'name', 'Unknown')
         lang = getattr(block, 'lang', 'text')
         self.console.print(f"▶ Executing: {name} ({lang})", style='dim')
 
-    def on_exec_result(self, data: Dict[str, Any]):
+    def on_exec_result(self, event):
         """代码执行结果事件处理"""
+        data = event.data
         result = data.get('result')
         block = data.get('block')
         
@@ -129,28 +140,32 @@ class DisplayMinimal(BaseDisplayPlugin):
         else:
             self.console.print(f"✓ {result}", style='green')
 
-    def on_mcp_call(self, block: Any):
+    def on_mcp_call(self, event):
         """工具调用事件处理"""
         # 简约风格：不显示工具调用信息
         pass
 
-    def on_mcp_result(self, data: Dict[str, Any]):
+    def on_mcp_result(self, event):
         """MCP 工具调用结果事件处理"""
         # 简约风格：不显示工具调用结果
         pass
 
-    def on_round_end(self, summary: Dict[str, Any], response: str):
+    def on_round_end(self, event):
         """任务总结事件处理"""
+        data = event.data
+        summary = data.get('summary', {})
+        response = data.get('response', '')
         # 简约显示：只显示总结信息
         self.console.print(Markdown(response)) 
-        self.console.print(f"• {summary}")
+        self.console.print(f"• {summary.get('summary')}")
 
-    def on_runtime_message(self, data: Dict[str, Any]):
+    def on_runtime_message(self, event):
         """Runtime消息事件处理"""
+        data = event.data
         message = data.get('message', '')
         self.console.print(message)
 
-    def on_runtime_input(self, data: Dict[str, Any]):
+    def on_runtime_input(self, event):
         """Runtime输入事件处理"""
         # 输入事件通常不需要特殊处理，因为input_prompt已经处理了
         pass 

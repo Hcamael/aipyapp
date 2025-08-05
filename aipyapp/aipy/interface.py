@@ -50,6 +50,14 @@ class Stoppable():
     def reset(self):
         self._stop_event.clear()
 
+class Event:
+    def __init__(self, name: str, data: dict):
+        self.name = name
+        self.data = data
+
+    def __str__(self):
+        return f"{self.name}: {self.data}"
+
 class EventBus:
     def __init__(self):
         super().__init__()
@@ -70,23 +78,26 @@ class EventBus:
                 else:
                     self._eb_logger.warning(f"Event {event_name} is not callable for {obj.__class__.__name__}")
 
-    def broadcast(self, event_name: str, *args, **kwargs):
+    def broadcast(self, event_name: str, **kwargs):
+        event = Event(event_name, kwargs)
         for handler in self._listeners.get(event_name, []):
             try:
-                handler(*args, **kwargs)
+                handler(event)
             except Exception as e:
                 self._eb_logger.exception(f"Error broadcasting event {event_name}")
 
-    def pipeline(self, event_name: str, data, **kwargs):
+    def pipeline(self, event_name: str, **kwargs):
+        event = Event(event_name, kwargs)
         for handler in self._listeners.get(event_name, []):
             try:
-                handler(data, **kwargs)
+                handler(event)
             except Exception as e:
                 self._eb_logger.exception(f"Error pipeline event {event_name}")
 
-    def collect(self, event_name: str, *args, **kwargs):
+    def collect(self, event_name: str, **kwargs):
+        event = Event(event_name, kwargs)
         try:
-            ret = [handler(*args, **kwargs) for handler in self._listeners.get(event_name, [])]
+            ret = [handler(event) for handler in self._listeners.get(event_name, [])]
         except Exception as e:
             ret = []
             self._eb_logger.exception(f"Error collecting event {event_name}")

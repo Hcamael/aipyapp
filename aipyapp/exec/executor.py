@@ -69,4 +69,24 @@ class BlockExecutor():
         history['result'] = result
         self.history.append(history)
         return result
+
+    def get_state(self):
+        """获取需要持久化的状态数据"""
+        return self.history.copy()
+
+    def restore_state(self, runner_data):
+        """从运行历史数据恢复状态"""
+        self.history.clear()
+        if runner_data:
+            self.history = runner_data.copy()
+    
+    def delete_range(self, start_index, end_index):
+        """删除指定范围的执行历史"""
+        if start_index < 0 or end_index > len(self.history) or start_index >= end_index:
+            return
         
+        # 删除指定范围的执行历史
+        self.history = self.history[:start_index] + self.history[end_index:]
+    
+    def clear(self):
+        self.history.clear()

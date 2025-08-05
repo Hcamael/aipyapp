@@ -424,6 +424,155 @@ class ModelPage(wx.adv.WizardPage):
     def GetPrev(self):
         return self.prev_page
 
+class OAuthPage(wx.adv.WizardPage):
+    def __init__(self, parent, provider_config):
+        super().__init__(parent)
+        self.provider_config = provider_config
+        self.prev_page = None
+        self.init_ui()
+
+    def init_ui(self):
+        vbox = wx.BoxSizer(wx.VERTICAL)
+
+        # 标题
+        title = wx.StaticText(self, label=T('OAuth Gateway Configuration'))
+        title.SetFont(wx.Font(12, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
+        vbox.Add(title, 0, wx.ALL | wx.ALIGN_CENTER, 10)
+
+        # Client ID
+        client_id_box = wx.BoxSizer(wx.HORIZONTAL)
+        client_id_label = wx.StaticText(self, label=T('Client ID:'))
+        self.client_id_input = wx.TextCtrl(self)
+        client_id_box.Add(client_id_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        client_id_box.Add(self.client_id_input, 1, wx.ALL | wx.EXPAND, 5)
+        vbox.Add(client_id_box, 0, wx.EXPAND | wx.ALL, 5)
+
+        # Client Secret
+        client_secret_box = wx.BoxSizer(wx.HORIZONTAL)
+        client_secret_label = wx.StaticText(self, label=T('Client Secret:'))
+        self.client_secret_input = wx.TextCtrl(self, style=wx.TE_PASSWORD)
+        client_secret_box.Add(client_secret_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        client_secret_box.Add(self.client_secret_input, 1, wx.ALL | wx.EXPAND, 5)
+        vbox.Add(client_secret_box, 0, wx.EXPAND | wx.ALL, 5)
+
+        # Token URL
+        token_url_box = wx.BoxSizer(wx.HORIZONTAL)
+        token_url_label = wx.StaticText(self, label=T('Token URL:'))
+        self.token_url_input = wx.TextCtrl(self)
+        token_url_box.Add(token_url_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        token_url_box.Add(self.token_url_input, 1, wx.ALL | wx.EXPAND, 5)
+        vbox.Add(token_url_box, 0, wx.EXPAND | wx.ALL, 5)
+
+        # API Base URL
+        base_url_box = wx.BoxSizer(wx.HORIZONTAL)
+        base_url_label = wx.StaticText(self, label=T('API Base URL:'))
+        self.base_url_input = wx.TextCtrl(self)
+        base_url_box.Add(base_url_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        base_url_box.Add(self.base_url_input, 1, wx.ALL | wx.EXPAND, 5)
+        vbox.Add(base_url_box, 0, wx.EXPAND | wx.ALL, 5)
+
+        # Model Name
+        model_box = wx.BoxSizer(wx.HORIZONTAL)
+        model_label = wx.StaticText(self, label=T('Model Name:'))
+        self.model_input = wx.TextCtrl(self)
+        model_box.Add(model_label, 0, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        model_box.Add(self.model_input, 1, wx.ALL | wx.EXPAND, 5)
+        vbox.Add(model_box, 0, wx.EXPAND | wx.ALL, 5)
+
+        # 测试按钮
+        test_box = wx.BoxSizer(wx.HORIZONTAL)
+        self.test_button = wx.Button(self, label=T('Test Connection'))
+        self.test_button.Bind(wx.EVT_BUTTON, self.on_test)
+        test_box.Add(self.test_button, 0, wx.ALL, 5)
+        self.test_result = wx.StaticText(self, label="")
+        test_box.Add(self.test_result, 1, wx.ALL | wx.ALIGN_CENTER_VERTICAL, 5)
+        vbox.Add(test_box, 0, wx.EXPAND | wx.ALL, 10)
+
+        self.SetSizer(vbox)
+
+    def get_client_id(self):
+        return self.client_id_input.GetValue().strip()
+
+    def get_client_secret(self):
+        return self.client_secret_input.GetValue().strip()
+
+    def get_token_url(self):
+        return self.token_url_input.GetValue().strip()
+
+    def get_base_url(self):
+        return self.base_url_input.GetValue().strip()
+    
+    def get_model(self):
+        return self.model_input.GetValue().strip()
+
+    def on_test(self, event):
+        client_id = self.get_client_id()
+        client_secret = self.get_client_secret()
+        token_url = self.get_token_url()
+        base_url = self.get_base_url()
+        model = self.get_model()
+        
+        if not client_id or not client_secret or not token_url or not base_url or not model:
+            self.test_result.SetLabel(T("Please fill in all fields"))
+            return
+
+        # Start testing in a separate thread to avoid UI freeze
+        threading.Thread(target=self._test_connection, args=(client_id, client_secret, token_url, base_url)).start()
+        self.test_result.SetLabel(T("Testing connection..."))
+        self.test_button.Enable(False)
+
+    def _test_connection(self, client_id, client_secret, token_url, base_url):
+        try:
+            # First try to get a token
+            response = requests.post(
+                token_url,
+                data={
+                    "grant_type": "client_credentials",
+                    "client_id": client_id,
+                    "client_secret": client_secret
+                },
+                timeout=10
+            )
+            response.raise_for_status()
+            token_data = response.json()
+            token = token_data.get("access_token")
+            
+            if not token:
+                wx.CallAfter(self._update_test_result, False, "No token received")
+                return
+                
+            # Now try to access the models endpoint
+            models_url = f"{base_url}/models"
+            response = requests.get(
+                models_url,
+                headers={"Authorization": f"Bearer {token}"},
+                timeout=10
+            )
+            response.raise_for_status()
+            
+            # If we get here, the connection is working
+            wx.CallAfter(self._update_test_result, True)
+        except Exception as e:
+            wx.CallAfter(self._update_test_result, False, str(e))
+    
+    def _update_test_result(self, success, error=None):
+        if success:
+            self.test_result.SetLabel(T("✓ Connection successful"))
+            self.test_result.SetForegroundColour(wx.Colour(0, 128, 0))
+        else:
+            self.test_result.SetLabel(f"✗ {error}")
+            self.test_result.SetForegroundColour(wx.Colour(255, 0, 0))
+        self.test_button.Enable(True)
+
+    def GetNext(self):
+        # In the wizard flow, this should go directly to the model page
+        # but for OAuth we have the model defined here
+        wizard = self.GetParent()
+        return wizard.model_page
+
+    def GetPrev(self):
+        return self.prev_page
+
 class ProviderConfigWizard(wx.adv.Wizard):
     def __init__(self, llm_config, parent):
         super().__init__(parent, title=T('LLM Provider Configuration Wizard'))
@@ -439,6 +588,7 @@ class ProviderConfigWizard(wx.adv.Wizard):
         self.trust_token_page = TrustTokenPage(self, self.provider_config)
         self.provider_page = ProviderPage(self, self.provider_config)
         self.model_page = ModelPage(self, self.provider_config)
+        self.oauth_page = OAuthPage(self, self.provider_config)
 
         # 绑定事件
         self.Bind(wx.adv.EVT_WIZARD_PAGE_CHANGED, self.on_page_changed)
@@ -488,6 +638,8 @@ class ProviderConfigWizard(wx.adv.Wizard):
             self.provider_page.prev_page = self.initial_page
         elif event.GetPage() == self.initial_page:
             self.initial_page.prev_page = None
+        elif event.GetPage() == self.oauth_page:
+            self.oauth_page.prev_page = self.initial_page
 
     def on_finished(self, event):
         # 根据 model_page 的 prev_page 来判断是从哪个路径来的

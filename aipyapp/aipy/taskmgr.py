@@ -34,14 +34,14 @@ class TaskContext:
 class TaskManager:
     MAX_TASKS = 16
 
-    def __init__(self, settings):
+    def __init__(self, settings, *, display_manager=None):
         # 核心配置
         self.settings = settings
+        self.display_manager = display_manager
         self.log = logger.bind(src='taskmgr')
         
         # 任务管理
         self.tasks = deque(maxlen=self.MAX_TASKS)
-        self.current_task: Optional[Task] = None
         
         # 工作环境
         self._init_workenv()
@@ -67,17 +67,11 @@ class TaskManager:
         else:
             self.cwd = Path.cwd()
 
-    def set_display_manager(self, display_manager):
-        self.display_manager = display_manager
-        self.task_context.display_manager = display_manager
-
     def _init_managers(self):
         """初始化各种管理器"""
         # 插件管理器
         self.plugin_manager = PluginManager(PLUGINS_DIR)
         self.plugin_manager.load_plugins()
-
-        self.display_manager = None
 
         # 诊断器
         self.diagnose = Diagnose.create(self.settings)
@@ -98,10 +92,28 @@ class TaskManager:
         # 提示管理器
         self.prompts = Prompts()
 
+    @property
+    def is_mcp_enabled(self):
+        return self.settings.get('mcp', {}).get('enable', True)
+    
+    def get_status(self):
+        status = {
+            'tasks': len(self.tasks),
+            'workdir': str(self.cwd),
+            'role': self.role_manager.current_role.name,
+            'client': repr(self.client_manager.current),
+            'llm': self.client_manager.current.name,
+            'display': self.display_manager.current_style,
+        }
+
+        if self.is_mcp_enabled:
+            status['mcp'] = self.mcp.get_status()
+        return status
+
     def _create_task_context(self) -> TaskContext:
         """创建任务上下文"""
         # 构建系统提示
-        with_mcp = self.settings.get('mcp', {}).get('enable', True)
+        with_mcp = self.is_mcp_enabled
         
         return TaskContext(
             settings=self.settings,
@@ -125,10 +137,18 @@ class TaskManager:
     def list_llms(self):
         return self.client_manager.to_records()
     
+    def list_roles(self):
+        RoleRecord = namedtuple('RoleRecord', ['Name', 'Description', 'Tips', 'Current'])
+        rows = []
+        for name, role in self.role_manager.roles.items():
+            current = '*' if role == self.role_manager.current_role else ''
+            rows.append(RoleRecord(name, role.short, len(role.tips), current))
+        return rows
+    
     def list_envs(self):
         EnvRecord = namedtuple('EnvRecord', ['Name', 'Description', 'Value'])
         rows = []
-        for name, (value, desc) in self.role_manager.current_role.env.items():    
+        for name, (value, desc) in self.role_manager.current_role.envs.items():    
             rows.append(EnvRecord(name, desc, value[:32]))
         return rows
     
@@ -147,7 +167,7 @@ class TaskManager:
     def get_update(self, force=False):
         return self.diagnose.check_update(force)
 
-    def use(self, llm=None, role=None, task=None):
+    def use(self, llm=None, role=None):
         rets = {}
         if llm:
             ret = self.client_manager.use(llm)
@@ -155,23 +175,20 @@ class TaskManager:
         if role:
             ret = self.role_manager.use(role)
             rets['role'] = ret
-        if task:
-            task = self.get_task_by_id(task)
-            rets['task'] = task
-            self.current_task = task
         return rets
 
     def new_task(self):
         """创建新任务"""
-        # 如果有当前任务，返回它
-        if self.current_task:
-            task = self.current_task
-            self.current_task = None
-            self.log.info('Reload task', task_id=task.task_id)
-            return task
-
         # 创建新任务
         task = Task(self.task_context)
         self.tasks.append(task)
         self.log.info('New task created', task_id=task.task_id)
+        return task
+    
+    def load_task(self, task_state):
+        """从任务状态加载任务"""
+        task = Task(self.task_context)
+        task.restore_state(task_state)
+        self.tasks.append(task)
+        self.log.info('Task loaded', task_id=task.task_id)
         return task
