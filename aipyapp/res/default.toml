@@ -23,5 +23,5 @@ preserve_system = true
 preserve_recent = 3
 
 [mcp]
-enable = true
+enable = false
 
