@@ -1,5 +1,38 @@
 # 2025-07-14 最新主流模型能力速览（含 Claude 系列）
 OpenAI:
+  gpt-5:
+    description: GPT-5 is our flagship model for coding, reasoning, and agentic tasks across domains
+    capabilities: [TEXT, IMAGE_INPUT, FUNCTION_CALLING, STRUCTURED_OUTPUT]
+    url: https://platform.openai.com/docs/models/gpt-5
+    context_length: 400000
+    max_output_tokens: 128000
+    prices:
+      input: 1.25
+      cached: 0.125
+      output: 10.00
+
+  gpt-5-mini:
+    description: GPT-5 mini is a faster, more cost-efficient version of GPT-5. It's great for well-defined tasks and precise prompts
+    capabilities: [TEXT, IMAGE_INPUT, FUNCTION_CALLING, STRUCTURED_OUTPUT]
+    url: https://platform.openai.com/docs/models/gpt-5-mini
+    context_length: 400000
+    max_output_tokens: 128000
+    prices:
+      input: 0.25
+      cached: 0.025
+      output: 2.00
+
+  gpt-5-nano:
+    description: GPT-5 Nano is our fastest, cheapest version of GPT-5. It's great for summarization and classification tasks
+    capabilities: [TEXT, IMAGE_INPUT, FUNCTION_CALLING, STRUCTURED_OUTPUT]
+    url: https://platform.openai.com/docs/models/gpt-5-nano
+    context_length: 400000
+    max_output_tokens: 128000
+    prices:
+      input: 0.05
+      cached: 0.005
+      output: 0.40
+
   gpt-4.1:
     description: Flagship GPT model for complex tasks
     capabilities: [TEXT, IMAGE_INPUT, FUNCTION_CALLING, STRUCTURED_OUTPUT]
@@ -131,6 +164,17 @@ DeepSeek:
       output: 2.19
 
 Anthropic:
+  claude-opus-4.1:
+    description: Highest level of intelligence and capability
+    capabilities: [TEXT, IMAGE_INPUT, FUNCTION_CALLING, CODE_EXECUTION, EXTENDED_THINKING, REASONING]
+    url: https://docs.anthropic.com/en/docs/about-claude/models/overview#model-comparison-table
+    context_length: 204800
+    max_output_tokens: 32000
+    prices:
+      input: 15.00
+      cached: 1.50
+      output: 75.00
+
   claude-opus-4:
     description: Highest level of intelligence and capability
     capabilities: [TEXT, IMAGE_INPUT, FUNCTION_CALLING, CODE_EXECUTION, EXTENDED_THINKING, REASONING]

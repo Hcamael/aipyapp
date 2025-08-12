@@ -54,8 +54,10 @@ class MMContent:
     def _from_string(self, text: str, base_path: Path = None) -> list:
         """
         从输入字符串解析多模态内容，支持@file.pdf、@image.jpg等文件引用，返回MMContent对象
+        支持带引号的文件路径，如 @"path with spaces.txt"
         """
-        parts = re.split(r'(@[^\s]+)', text)
+        # 匹配 @文件路径，支持带引号的路径
+        parts = re.split(r'(@(?:"[^"]*"|\'[^\']*\'|[^\s]+))', text)
         items = []
         for part in parts:
             part = part.strip()
@@ -63,12 +65,22 @@ class MMContent:
                 continue
             if part.startswith('@'):
                 file_path = part[1:]
+                # 去除文件路径的引号
+                if (file_path.startswith('"') and file_path.endswith('"')) or \
+                   (file_path.startswith("'") and file_path.endswith("'")):
+                    file_path = file_path[1:-1]
                 ext = Path(file_path).suffix.lower()
                 file_type = 'image' if ext in {'.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'} else None
                 if base_path:
                     p = Path(file_path)
                     if not p.is_absolute():
                         file_path = str(base_path / p)
+                
+                # 检查文件是否存在，如果不存在则作为普通文本处理
+                if not Path(file_path).exists():
+                    items.append({'type': 'text', 'text': part})
+                    continue
+                
                 if not file_type:
                     # 判断文本/二进制
                     if is_text_file(file_path):

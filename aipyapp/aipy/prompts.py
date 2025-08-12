@@ -117,6 +117,22 @@ class Prompts:
         :return: 渲染后的字符串
         """
         return self.get_prompt('results', results=results)
+
+    def get_edit_results_prompt(self, results: dict) -> str:
+        """
+        获取编辑结果提示
+        :param results: 编辑结果字典
+        :return: 渲染后的字符串
+        """
+        return self.get_prompt('edit_results', results=results)
+
+    def get_mixed_results_prompt(self, results: dict) -> str:
+        """
+        获取混合结果提示（包含执行和编辑结果）
+        :param results: 混合结果字典
+        :return: 渲染后的字符串
+        """
+        return self.get_prompt('mixed_results', results=results)
     
     def get_mcp_result_prompt(self, result: dict) -> str:
         """

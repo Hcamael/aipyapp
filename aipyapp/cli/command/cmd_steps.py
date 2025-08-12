@@ -18,7 +18,7 @@ class StepsCommand(ParserCommand):
         parser = subparsers.add_parser('delete', help=T('Delete task steps'))
         parser.add_argument('index', type=int, help=T('Index of the task step to delete'))
         
-    def get_arg_values(self, arg, subcommand=None):
+    def get_arg_values(self, arg, subcommand=None, partial_value=''):
         if subcommand == 'delete' and arg.name == 'index':
             ctx = self.manager.context
             return [Completable(str(step.Index), step.Instruction[:32]) for step in ctx.task.list_steps()]

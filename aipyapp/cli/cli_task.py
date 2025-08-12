@@ -3,17 +3,16 @@
 from importlib.resources import read_text
 
 from rich.console import Console
+from rich.text import Text
 from prompt_toolkit import PromptSession
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.styles import Style
 from prompt_toolkit.cursor_shapes import CursorShape
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 
-from ..aipy import TaskManager, ConfigManager, CONFIG_DIR
-from .. import T, set_lang, __version__, __respkg__
-from ..config import LLMConfig
-from ..aipy.wizard import config_llm
-from .command import CommandManager, CommandError
+from ..aipy import TaskManager
+from .. import T, __version__, __respkg__
+from .command import CommandManager, TaskModeResult, CommandError, CommandResult
 from ..display import DisplayManager
 
 STYLE_MAIN = {
@@ -38,21 +37,26 @@ class InteractiveConsole():
     def __init__(self, tm, console, settings):
         self.tm = tm
         self.names = tm.client_manager.names
-        self.history = FileHistory(str(CONFIG_DIR / ".history"))
+        self.history = FileHistory(str(settings['config_dir'] / ".history"))
         self.console = console
         self.settings = settings
         self.task = None
         self.style_main = Style.from_dict(STYLE_MAIN)
         self.style_task = Style.from_dict(STYLE_AI)
-        self.command_manager = CommandManager(tm, console)
+        self.command_manager = CommandManager(settings,tm, console)
         self.completer = self.command_manager
-        self.session = PromptSession(history=self.history, completer=self.completer, auto_suggest=AutoSuggestFromHistory(), bottom_toolbar=self.get_bottom_toolbar)
+        self.session = PromptSession(
+            history=self.history, 
+            completer=self.completer, 
+            auto_suggest=AutoSuggestFromHistory(), 
+            bottom_toolbar=self.get_bottom_toolbar,
+            key_bindings=self.command_manager.create_key_bindings()
+        )
     
     def get_main_status(self):
         status = self.tm.get_status()
         try:
-            mcp = status['mcp']
-            mcp_text = f" | MCP: {mcp['enabled_servers']}/{mcp['total_servers']}S, {mcp['enabled_tools']}/{mcp['total_tools']}T"
+            mcp_text = f" | MCP: {T('Enabled') if status['mcp_enabled'] else T('Disabled')}"
         except KeyError:
             mcp_text = ""
         return f"LLM: {status['llm']} | Role: {status['role']} | Display: {status['display']} | Tasks: {status['tasks']}{mcp_text}"
@@ -90,20 +94,20 @@ class InteractiveConsole():
                 break
         return "\n".join(lines)
 
-    def run_task(self, task, instruction):
+    def run_task(self, task, instruction, title=None):
         try:
-            task.run(instruction)
+            task.run(instruction, title=title)
         except (EOFError, KeyboardInterrupt):
             pass
         except Exception as e:
             self.console.print_exception()
 
-    def start_task_mode(self, task, instruction=None):
+    def start_task_mode(self, task, instruction=None, title=None):
         if instruction:
-            self.console.print(f"[AI] {T('Enter Ctrl+d or /done to end current task')}", style="cyan")
-            self.run_task(task, instruction)
+            self.console.print(f"[AI] {T('Enter Ctrl+d or /done to end current task')}", style="dim color(240)")
+            self.run_task(task, instruction, title=title)
         else:
-            self.console.print(f"[AI] {T('Resuming task')}: {task.instruction[:32]}", style="cyan")
+            self.console.print(f"[AI] {T('Resuming task')}: {task.instruction[:32]}", style="dim color(240)")
             
         while True:
             self.task = task
@@ -117,20 +121,24 @@ class InteractiveConsole():
             if user_input in ('/done', 'done'):
                 break
 
-            if user_input.startswith('/'):
-                self.command_manager.execute(user_input)
+            if not user_input.startswith('/'):
+                self.run_task(task, user_input)
                 continue
-            self.run_task(task, user_input)
+
+            try:
+                self.command_manager.execute(user_input)
+            except CommandError as e:
+                self.console.print(f"[red]{e}[/red]")
 
         try:
             task.done()
         except Exception as e:
             self.console.print_exception()
         self.task = None
-        self.console.print(f"[{T('Exit AI mode')}]", style="cyan")
+        self.console.print(f"[{T('Exit AI mode')}]", style="dim")
 
     def run(self):
-        self.console.print(f"[Main] {T('Please enter an instruction or `/help` for more information')}", style="green")
+        self.console.print(f"[Main] {T('Please enter an instruction or `/help` for more information')}", style="dim color(240)")
         tm = self.tm
         while True:
             self.command_manager.set_main_mode()
@@ -146,49 +154,38 @@ class InteractiveConsole():
 
                 try:
                     ret = self.command_manager.execute(user_input)
-                    if ret and ret['command'] == 'task' and ret['subcommand'] in ('use', 'load'):
-                        task = ret['ret']
-                        self.start_task_mode(task)
+                    if isinstance(ret, CommandResult) and isinstance(ret.result, TaskModeResult):
+                        result = ret.result
+                        if result.instruction:
+                            task = tm.new_task()
+                            title = result.title
+                        else:
+                            task = result.task
+                            title = None
+                        self.start_task_mode(task, result.instruction, title=title)
+                        continue
                 except CommandError as e:
                     self.console.print(f"[red]{e}[/red]")
-                    continue
             except (EOFError, KeyboardInterrupt):
                 break
 
-def main(args):
+def get_logo_text(config_dir):
+    path = config_dir / "logo.txt"
+    if path.exists():
+        logo_text = path.read_text()
+    else:
+        logo_text = read_text(__respkg__, "logo.txt")
+    return logo_text
+
+def main(settings):
     console = Console(record=True)
     console.print(f"🚀 Python use - AIPython ({__version__}) [[pink]https://aipy.app[/pink]]", style="bold green")
-    console.print(read_text(__respkg__, "logo.txt"))
-    conf = ConfigManager(args.config_dir)
-    settings = conf.get_config()
-    lang = settings.get('lang')
-    if lang: set_lang(lang)
-    llm_config = LLMConfig(CONFIG_DIR / "config")
-    if conf.check_config(gui=True) == 'TrustToken':
-        if llm_config.need_config():
-            console.print(f"[yellow]{T('Starting LLM Provider Configuration Wizard')}[/yellow]")
-            try:
-                config = config_llm(llm_config)
-            except KeyboardInterrupt:
-                console.print(f"[yellow]{T('User cancelled configuration')}[/yellow]")
-                return
-            if not config:
-                return
-        settings["llm"] = llm_config.config
-
-    if args.fetch_config:
-        conf.fetch_config()
-        return
-
-    settings.gui = False
-    settings.debug = args.debug
-    settings.config_dir = CONFIG_DIR
-    if args.role:
-        settings['role'] = args.role.lower()
+    logo_text = get_logo_text(settings['config_dir'])
+    console.print(Text.from_ansi(logo_text))
 
     # 初始化显示效果管理器
-    display_style = args.style or settings.get('display', 'classic')
-    display_manager = DisplayManager(display_style, console=console)
+    display_config = settings.get('display', {})
+    display_manager = DisplayManager(display_config, console=console)
     try:
         tm = TaskManager(settings, display_manager=display_manager)
     except Exception as e:
@@ -203,7 +200,8 @@ def main(args):
         console.print(f"[bold red]{T('No available LLM, please check the configuration file')}")
         return
     
-    if args.cmd:
-        tm.new_task().run(args.cmd)
+    cmd = settings.get('exec_cmd')
+    if cmd:
+        tm.new_task().run(cmd)
         return
     InteractiveConsole(tm, console, settings).run()

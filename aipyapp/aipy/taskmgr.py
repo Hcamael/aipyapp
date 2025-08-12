@@ -10,7 +10,7 @@ from typing import Optional, Any
 from loguru import logger
 
 from .task import Task
-from .plugin import PluginManager
+from .plugins import PluginManager
 from .prompts import Prompts
 from .diagnose import Diagnose
 from .llm import ClientManager
@@ -34,7 +34,7 @@ class TaskContext:
 class TaskManager:
     MAX_TASKS = 16
 
-    def __init__(self, settings, *, display_manager=None):
+    def __init__(self, settings, /, display_manager=None):
         # 核心配置
         self.settings = settings
         self.display_manager = display_manager
@@ -70,8 +70,14 @@ class TaskManager:
     def _init_managers(self):
         """初始化各种管理器"""
         # 插件管理器
-        self.plugin_manager = PluginManager(PLUGINS_DIR)
-        self.plugin_manager.load_plugins()
+        plugin_manager = PluginManager()
+        plugin_manager.add_plugin_directory(PLUGINS_DIR)
+        plugin_manager.load_all_plugins()
+        self.plugin_manager = plugin_manager
+
+        if self.display_manager:
+            for plugin in plugin_manager.get_display_plugins():
+                self.display_manager.register_plugin(plugin)
 
         # 诊断器
         self.diagnose = Diagnose.create(self.settings)
@@ -92,10 +98,6 @@ class TaskManager:
         # 提示管理器
         self.prompts = Prompts()
 
-    @property
-    def is_mcp_enabled(self):
-        return self.settings.get('mcp', {}).get('enable', True)
-    
     def get_status(self):
         status = {
             'tasks': len(self.tasks),
@@ -103,18 +105,13 @@ class TaskManager:
             'role': self.role_manager.current_role.name,
             'client': repr(self.client_manager.current),
             'llm': self.client_manager.current.name,
-            'display': self.display_manager.current_style,
+            'display': self.display_manager.style,
+            'mcp_enabled': self.mcp.is_mcp_enabled,
         }
-
-        if self.is_mcp_enabled:
-            status['mcp'] = self.mcp.get_status()
         return status
 
     def _create_task_context(self) -> TaskContext:
         """创建任务上下文"""
-        # 构建系统提示
-        with_mcp = self.is_mcp_enabled
-        
         return TaskContext(
             settings=self.settings,
             cwd=self.cwd,
@@ -123,7 +120,7 @@ class TaskManager:
             client_manager=self.client_manager,
             role_manager=self.role_manager,
             diagnose=self.diagnose,
-            mcp=self.mcp if with_mcp else None,
+            mcp=self.mcp,
             prompts=self.prompts
         )
 

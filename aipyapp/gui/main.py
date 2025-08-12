@@ -21,8 +21,8 @@ from wx.lib.newevent import NewEvent
 from wx.lib.agw.hyperlink import HyperLinkCtrl
 from wx import FileDialog, FD_SAVE, FD_OVERWRITE_PROMPT
 
-from .. import __version__, T, set_lang, get_lang, __respath__
-from ..aipy.config import ConfigManager, CONFIG_DIR
+from .. import __version__, T, get_lang, __respath__
+from ..aipy.config import CONFIG_DIR
 from ..aipy import TaskManager
 from . import ConfigDialog, ApiMarketDialog, show_provider_config, AboutDialog, CStatusBar
 from ..config import LLMConfig
@@ -552,35 +552,26 @@ class ShareResultDialog(wx.Dialog):
         self.Centre()
 
 
-def main(args):
+def main(settings):
     app = wx.App(False)
-    conf = ConfigManager(args.config_dir)
-    settings = conf.get_config()
-    lang = settings.get('lang')
-    if lang: set_lang(lang)
     llm_config = LLMConfig(CONFIG_DIR / "config")
-    if conf.check_config(gui=True) == 'TrustToken':
+    if settings.get('llm_need_config'):
         if llm_config.need_config():
             show_provider_config(llm_config)
             if llm_config.need_config():
                 return
         settings["llm"] = llm_config.config
         
-    settings.gui = True
-    settings.debug = args.debug
-    settings.auto_install = True
-    settings.auto_getenv = True
-
     # 初始化显示效果管理器
-    display_style = settings.get('display', 'classic')
-    display_manager = DisplayManager(display_style, quiet=True)
+    display_config = settings.get('display', {})
+    display_manager = DisplayManager(display_config)
 
     try:
         tm = TaskManager(settings, display_manager=display_manager)
     except Exception as e:
         traceback.print_exc()
         return
-    tm.config_manager = conf
+    tm.config_manager = settings['config_manager']
     tm.llm_config = llm_config
     ChatFrame(tm)
     app.MainLoop()

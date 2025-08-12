@@ -28,6 +28,7 @@ enable = true
 default = false
 timeout = 10
 max_tokens = 8192
+params = {}
 ```
 
 其中：
@@ -59,20 +60,21 @@ LLM 类型列表
 | gemini | Gemini API |
 | deepseek | DeepSeek API |
 | grok | Grok API |
+| azure | Azure API |
+| oauth2 | OAuth2 Provider |
+| doubao | DouBao |
+| kimi | Kimi |
+| bigmodel | bigmodel |
+| z | z.ai |
 
-# API 配置
-用于配置供 LLM 使用的 API 信息。
-
-格式和内容示例如下：
+# 显示配置
 ```toml
-env.GOOGLE_API_KEY = ['AIxxxxxx', '用于Google Custom Search的API Key']
-env.SEARCH_ENGINE_ID = ['400xxxxxxx', 'Google Custom Search Engine ID']
-desc = "Google Custom Search API"
+[display]
+style = "classic"
+theme = "default"
+record = true
+quiet = false
 ```
-
-其中，"env." 开头的是可供 LLM 使用的环境变量名称，`desc` 是API描述信息。
-
-在 `desc` 中应该尽可能详细地描述 API 的用途和功能，以便 LLM 更好地理解和使用。特别是，**给出使用的示例代码**。
 
 # 其它全局配置列表
 
@@ -82,5 +84,4 @@ desc = "Google Custom Search API"
 | max_rounds | 自动执行的最大轮数，默认 16 |
 | lang | 默认语言，取值为 `en` 或 `zh` |
 | workdir | 工作目录，默认为当前目录下的 `work` 子目录 |
-
-
+| role | 角色，默认为 `aipy` |

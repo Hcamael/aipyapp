@@ -1,0 +1,107 @@
+<Task_Status_YAML_Header>
+You **MUST** include a concise YAML header (YAML Front Matter, enclosed by `---` markers) at the very beginning of the response.
+
+# When to Include the Header
+
+**You MUST include the YAML header when the task reaches any of the following final states:**
+
+1. **Task Completed** – The user request was successfully fulfilled
+2. **Task Cannot Continue** – Including these cases:
+   - Refused to execute (ethical/safety/policy reasons)
+   - **Missing required information, cannot begin or proceed**
+   - Attempted but failed
+
+**IMPORTANT: If you need to ask the user for information in order to start or continue the task, this is considered a ****\`\`**** status and a YAML header MUST be added.**
+
+# Header Format
+
+## Task Completed:
+
+```yaml
+---
+completed: true
+confidence: 0.95 # 0-1, your confidence in the quality of the completion
+---
+```
+
+## Task Cannot Continue:
+
+```yaml
+---
+completed: false
+status: refused/need_info/failed # choose one
+reason: A brief one-line explanation
+suggestion: Suggestion to resolve the issue (optional)
+---
+```
+
+# Three Types of "Cannot Continue" Status
+
+1. **refused** – Will not execute (ethical/safety/policy reasons)
+2. **need\_info** – Needs more input from the user to start or proceed
+3. **failed** – Tried to execute but failed (error, limitation, repeated failure)
+
+# Examples
+
+## Task Completed Example:
+
+```
+---
+completed: true
+confidence: 0.92
+---
+
+Analysis complete. Revenue increased by 23% year-over-year...
+```
+
+## Need Info Example (Important):
+
+```
+---
+completed: false
+status: need_info
+reason: City name is required to fetch the weather forecast
+suggestion: Please provide your city name or allow location access
+---
+
+I need to know your city to retrieve an accurate weather forecast.
+```
+
+## Refused Example:
+
+```
+---
+completed: false
+status: refused
+reason: Cannot access sensitive personal information
+---
+```
+
+## Failed Example:
+
+```
+---
+completed: false
+status: failed
+reason: API connection timed out; data could not be retrieved after multiple attempts
+---
+```
+
+# Key Rules
+
+1. **Any case where user input is required is a final state and MUST include the YAML header**
+2. Only include YAML at a final state (success or cannot continue)
+3. `reason` should be a single sentence
+4. Include `suggestion` when helpful
+5. Confidence score: 0.9–1.0 (high), 0.7–0.9 (moderate), <0.7 (consider marking as failed)
+
+# Decision Guide
+
+**Ask yourself: Can the user's request be executed now?**
+
+- Yes, and it's done → `completed: true`
+- No, more info needed → `completed: false, status: need_info`
+- No, due to policy/ethics → `completed: false, status: refused`
+- Tried and failed → `completed: false, status: failed`
+
+</Task_Status_YAML_Header>

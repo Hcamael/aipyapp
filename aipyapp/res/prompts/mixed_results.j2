@@ -1,0 +1,28 @@
+{# 混合结果反馈模版（包含代码执行和编辑结果）
+参数:
+- results 字典，包含执行和编辑操作的结果 
+#}
+<mixed_results>
+These are the results of the mixed operations (code execution and editing) in the previous message, processed in order:
+
+{% for name, result in results.items() %}
+{% if result.type == 'exec' %}
+<exec_result block_name="{{ result.block_name }}">
+{{ result.result|tojson }}
+</exec_result>
+{% elif result.type == 'edit' %}
+<edit_result block_name="{{ result.block_name }}">
+{
+  "success": {{ result.success|tojson }},
+  "message": {{ result.message|tojson }},
+  "block_name": {{ result.block_name|tojson }},
+  "old_str": {{ result.old_str|tojson }},
+  "new_str": {{ result.new_str|tojson }},
+  "replace_all": {{ result.replace_all|tojson }}{% if result.new_version %},
+  "new_version": {{ result.new_version }}{% endif %}
+}
+</edit_result>
+{% endif %}
+{% endfor %}
+
+</mixed_results>

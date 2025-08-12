@@ -44,4 +44,4 @@ class LiveDisplay:
             
         # 更新显示
         display_content = '\n'.join(self.display_lines)
-        self.live.update(Text(display_content, style="dim white"), refresh=True) 
+        self.live.update(Text(display_content, style="dim color(240)"), refresh=True) 

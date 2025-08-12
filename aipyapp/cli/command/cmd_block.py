@@ -14,8 +14,8 @@ class BlockCommand(ParserCommand):
     description = T("Manage code blocks")
     modes = [CommandMode.TASK]
     
-    def get_arg_values(self, arg, subcommand=None):
-        if subcommand == 'show' and arg.name == 'index':
+    def get_arg_values(self, arg, subcommand=None, partial_value=''):
+        if arg.name == 'index':
             ctx = self.manager.context
             return [Completable(str(block.Index), f"{block.Name} ({block.Language})") for block in ctx.task.list_code_blocks()]
         return None
@@ -23,8 +23,10 @@ class BlockCommand(ParserCommand):
     def add_subcommands(self, subparsers):
         subparsers.add_parser('list', help=T('List code blocks'))
         parser = subparsers.add_parser('show', help=T('Show code block source'))
-        parser.add_argument('index', type=int, help=T('Index of the code block to show'))
-        
+        parser.add_argument('index', type=int, help=T('Index of the code block'))
+        parser = subparsers.add_parser('run', help=T('Run code block'))
+        parser.add_argument('index', type=int, help=T('Index of the code block'))
+
     def cmd(self, args, ctx):
         return self.cmd_list(args, ctx)
     
@@ -43,6 +45,16 @@ class BlockCommand(ParserCommand):
             ctx.console.print(f"[dim]{T('Path')}: {block.path}[/dim]")
         ctx.console.print("")
         ctx.console.print(syntax)
+        return True
+    
+    def cmd_run(self, args, ctx):
+        """运行代码块"""
+        task = ctx.task
+        block = task.get_code_block(args.index)
+        if not block:
+            ctx.console.print(T("Code block not found"))
+            return False
+        task.run_code_block(block)
         return True
     
     def cmd_list(self, args, ctx):

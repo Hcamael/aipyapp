@@ -1,5 +1,10 @@
+import json
+
+from rich.tree import Tree
+from rich.syntax import Syntax
+
 from ... import T
-from .base import CommandMode, Completable
+from .base import Completable
 from .base_parser import ParserCommand
 from .utils import print_records
 
@@ -19,7 +24,7 @@ class RoleCommand(ParserCommand):
         use_parser = subparsers.add_parser('use', help=T('Use a role'))
         use_parser.add_argument('role', type=str, help=T('Role name'))
 
-    def get_arg_values(self, arg, subcommand=None):
+    def get_arg_values(self, arg, subcommand=None, partial_value=''):
         if subcommand in ['show', 'use'] and arg.name == 'role':
             ctx = self.manager.context
             return [Completable(name, role.short) for name, role in ctx.tm.role_manager.roles.items()]
@@ -94,6 +99,15 @@ class RoleCommand(ParserCommand):
                 pkg_table.add_row(lang, ', '.join(packages))
             
             print(pkg_table)
+
+        # 插件表格
+        if role.plugins:
+            tree = Tree(T('Plugins'))
+            for plugin_name, plugin_config in role.plugins.items():
+                t = tree.add(plugin_name)
+                t.add(Syntax(json.dumps(plugin_config, ensure_ascii=False, indent=2), "json", word_wrap=True))
+
+            print(tree)
         
     def cmd_use(self, args, ctx):
         success = ctx.tm.use(role=args.role)

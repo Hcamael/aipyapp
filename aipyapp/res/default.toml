@@ -15,13 +15,9 @@ enable = false
 strategy = "hybrid"
 max_tokens = 100000
 max_rounds = 10
-auto_compress = false
+auto_compress = true
 compression_ratio = 0.3
 importance_threshold = 0.5
 summary_max_length = 200
 preserve_system = true
 preserve_recent = 3
-
-[mcp]
-enable = false
-

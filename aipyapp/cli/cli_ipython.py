@@ -7,8 +7,8 @@ from IPython.terminal.prompts import ClassicPrompts, Token
 from IPython.terminal.embed import embed, InteractiveShellEmbed
 from IPython.core.magic import Magics, magics_class, line_cell_magic,line_magic, cell_magic, register_line_magic
 
-from ..aipy import TaskManager, ConfigManager, CONFIG_DIR
-from .. import T, set_lang, __version__
+from ..aipy import TaskManager
+from .. import T, __version__
 
 class MainPrompt(ClassicPrompts):
     def in_prompt_tokens(self):
@@ -74,19 +74,9 @@ class AIMagics(Magics):
         print(line)
         print(cell)
     
-def main(args):
+def main(settings):
     console = Console(record=True)
     console.print(f"[bold cyan]🚀 Python use - AIPython ({__version__}) [[green]https://aipy.app[/green]]")
-
-    conf = ConfigManager(args.config_dir)
-    conf.check_config()
-    settings = conf.get_config()
-
-    lang = settings.get('lang')
-    if lang: set_lang(lang)
-    
-    settings.gui = False
-    settings.debug = args.debug
 
     try:
         ai = TaskManager(settings, console=console)

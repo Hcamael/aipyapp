@@ -2,9 +2,11 @@
 # -*- coding: utf-8 -*-
 
 import traceback
+from typing import Optional
 
 from loguru import logger
 
+from ..interface import Trackable
 from .python import PythonRuntime, PythonExecutor
 from .html import HtmlExecutor
 from .prun import BashExecutor, PowerShellExecutor, AppleScriptExecutor, NodeExecutor
@@ -18,7 +20,7 @@ EXECUTORS = {executor.name: executor for executor in [
     NodeExecutor
 ]}
 
-class BlockExecutor():
+class BlockExecutor(Trackable):
     def __init__(self):
         self.history = []
         self.executors = {}
@@ -80,13 +82,21 @@ class BlockExecutor():
         if runner_data:
             self.history = runner_data.copy()
     
-    def delete_range(self, start_index, end_index):
-        """删除指定范围的执行历史"""
-        if start_index < 0 or end_index > len(self.history) or start_index >= end_index:
-            return
-        
-        # 删除指定范围的执行历史
-        self.history = self.history[:start_index] + self.history[end_index:]
     
     def clear(self):
         self.history.clear()
+    
+    # Trackable接口实现
+    def get_checkpoint(self) -> int:
+        """获取当前检查点状态 - 返回执行历史长度"""
+        return len(self.history)
+    
+    def restore_to_checkpoint(self, checkpoint: Optional[int]):
+        """恢复到指定检查点"""
+        if checkpoint is None:
+            # 恢复到初始状态
+            self.clear()
+        else:
+            # 恢复到指定长度
+            if checkpoint < len(self.history):
+                self.history = self.history[:checkpoint]

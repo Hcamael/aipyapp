@@ -12,7 +12,7 @@ class HelpCommand(ParserCommand):
     def add_arguments(self, parser):
         parser.add_argument('target_command', nargs='?', help='Command to show detailed help for')
 
-    def get_arg_values(self, arg, subcommand=None):
+    def get_arg_values(self, arg, subcommand=None, partial_value=''):
         if arg.name == 'target_command':
             return [Completable(cmd.name, cmd.description) for cmd in self.manager.commands.values()]
         else:

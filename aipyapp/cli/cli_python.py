@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 import code
 import builtins
-from pathlib import Path
 
 from rich.console import Console
 from prompt_toolkit import PromptSession
@@ -13,8 +12,8 @@ from prompt_toolkit.lexers import PygmentsLexer
 from prompt_toolkit.history import FileHistory
 from pygments.lexers.python import PythonLexer
 
-from ..aipy import TaskManager, ConfigManager, CONFIG_DIR
-from .. import T, set_lang, __version__
+from ..aipy import TaskManager
+from .. import T, __version__
 
 class PythonCompleter(WordCompleter):
     def __init__(self, ai):
@@ -23,19 +22,9 @@ class PythonCompleter(WordCompleter):
         names += [f"ai.{attr}" for attr in dir(ai) if not attr.startswith('_')]
         super().__init__(names, ignore_case=True)
     
-def main(args):
+def main(settings):
     console = Console(record=True)
     console.print(f"[bold cyan]🚀 Python use - AIPython ({__version__}) [[green]https://aipy.app[/green]]")
-
-    conf = ConfigManager(args.config_dir)
-    conf.check_config()
-    settings = conf.get_config()
-
-    lang = settings.get('lang')
-    if lang: set_lang(lang)
-    
-    settings.gui = False
-    settings.debug = args.debug
 
     try:
         ai = TaskManager(settings, console=console)
@@ -60,7 +49,7 @@ def main(args):
     completer = PythonCompleter(ai)
     lexer = PygmentsLexer(PythonLexer)
     auto_suggest = AutoSuggestFromHistory()
-    history = FileHistory(str(CONFIG_DIR / '.history.py'))
+    history = FileHistory(str(settings['config_dir'] / '.history.py'))
     session = PromptSession(history=history, completer=completer, lexer=lexer, auto_suggest=auto_suggest)
     while True:
         try:

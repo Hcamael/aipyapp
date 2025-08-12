@@ -42,7 +42,7 @@ You may only access the following user-provided environment variables via `utils
 
 {% if tool_functions is defined and tool_functions %}
 <tool_functions>
-These functions are provided by the python execution environment. You can call them with `utils.call_tool` function.
+These functions are provided by the python execution environment. You can call them with `utils.call_function` function.
 
 {% for name, func in tool_functions.items() %}
 - {{ name }}({{ func.signature }})

@@ -10,6 +10,7 @@ from enum import Enum
 from loguru import logger
 
 from ..llm import ChatMessage
+from ..interface import Trackable
 
 
 class ContextStrategy(Enum):
@@ -25,7 +26,7 @@ class ContextConfig:
     """上下文管理配置"""
     max_tokens: int = 100000               # 最大token数
     max_rounds: int = 10                   # 最大对话轮数
-    auto_compress: bool = False            # 是否自动压缩
+    auto_compress: bool = True             # 是否自动压缩
     strategy: ContextStrategy = ContextStrategy.HYBRID
     compression_ratio: float = 0.3         # 压缩比例
     importance_threshold: float = 0.5      # 重要性阈值
@@ -40,6 +41,15 @@ class ContextConfig:
         except ValueError:
             strategy = None
         return strategy
+
+    @classmethod
+    def from_dict(cls, data: dict) -> 'ContextConfig':
+        obj = cls(**data)
+        obj.set_strategy(data.get('strategy', 'hybrid'))
+        return obj
+    
+    def to_dict(self) -> dict:
+        return self.__dict__
 
 class TokenCounter:
     """Token计数器"""
@@ -110,7 +120,6 @@ class ChatHistory:
             return
         
         # 删除指定范围的消息
-        deleted_messages = self.messages[start_index:end_index]
         self.messages = self.messages[:start_index] + self.messages[end_index:]
         
         # 重新计算 token 统计
@@ -329,7 +338,7 @@ class MessageCompressor:
         return 0
 
 
-class ContextManager:
+class ContextManager(Trackable):
     """上下文管理器"""
     
     def __init__(self, config: Optional[ContextConfig] = None):
@@ -460,20 +469,13 @@ class ContextManager:
 
     def clear(self):
         """清空上下文"""
-        self.chat_history.clear()
-        self._messages_cache.clear()
-        self._cached_tokens = 0
+        #self.chat_history.clear()
+        self._clear_messages_cache()
+        #self._cached_tokens = 0
         self.token_counter.reset()
         self._last_compression_time = 0
         self.log.info("Context cleared")
     
-    def delete_range(self, start_index, end_index):
-        """删除指定范围的消息"""
-        # 删除原始历史
-        self.chat_history.delete_range(start_index, end_index)
-        
-        # 重建缓存
-        self._rebuild_cache()
     
     def _rebuild_cache(self):
         """重建消息缓存"""
@@ -561,3 +563,21 @@ class ContextManager:
         self._last_compression_time = state_data.get('last_compression_time', 0)
         
         self.log.info(f"Context manager state restored: {len(self._messages_cache)} messages, {self._cached_tokens} tokens")
+    
+    # Trackable接口实现
+    def get_checkpoint(self) -> int:
+        """获取当前检查点状态 - 返回消息数量"""
+        return len(self.chat_history)
+    
+    def restore_to_checkpoint(self, checkpoint: Optional[int]):
+        """恢复到指定检查点"""
+        if checkpoint is None:
+            # 恢复到初始状态
+            self.clear()
+        else:
+            # 恢复到指定消息数量
+            if checkpoint < len(self.chat_history):
+                # 删除checkpoint之后的消息
+                self.chat_history.delete_range(checkpoint, len(self.chat_history))
+                # 重建缓存
+                self._rebuild_cache()

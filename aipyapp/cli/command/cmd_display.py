@@ -33,9 +33,9 @@ class DisplayCommand(ParserCommand):
         """设置显示风格"""
         success = ctx.tm.display_manager.set_style(args.style)
         if success:
-            print(f"[green]{T('Display style changed to')}: {args.style}[/green]")
+            print(f"[green]{T('Display style changed to')}: {T(args.style)}[/green]")
         else:
-            print(f"[red]{T('Invalid display style')}: {args.style}[/red]")
+            print(f"[red]{T('Invalid display style')}: {T(args.style)}[/red]")
             print(f"[yellow]{T('Use /display list to see available styles')}[/yellow]") 
 
     def cmd(self, args, ctx):

@@ -4,6 +4,7 @@ from collections import OrderedDict
 from dataclasses import dataclass
 from typing import Any
 
+from ... import __pkgpath__
 from .base import BaseCommand, CommandMode
 from .cmd_info import InfoCommand
 from .cmd_help import HelpCommand
@@ -15,13 +16,19 @@ from .cmd_display import DisplayCommand
 from .cmd_context import ContextCommand
 from .cmd_steps import StepsCommand
 from .cmd_block import BlockCommand
+from .cmd_plugin import Command as PluginCommand
+from .cmd_custom import CustomCommand
+from .custom_command_manager import CustomCommandManager
+from .result import CommandResult
 
 from loguru import logger
 from prompt_toolkit.completion import Completer, Completion
+from prompt_toolkit.key_binding import KeyBindings
+from pathlib import Path
 
 COMMANDS = [
-    InfoCommand, LLMCommand, RoleCommand, DisplayCommand, StepsCommand, 
-    BlockCommand, ContextCommand, TaskCommand, MCPCommand, HelpCommand
+    InfoCommand, LLMCommand, RoleCommand, DisplayCommand, PluginCommand, StepsCommand, 
+    BlockCommand, ContextCommand, TaskCommand, MCPCommand, HelpCommand, CustomCommand,
 ]
 
 @dataclass
@@ -41,6 +48,12 @@ class CommandInputError(CommandError):
         self.message = message
         super().__init__(self.message)
 
+class CommandArgumentError(CommandError):
+    """Command argument error"""
+    def __init__(self, message):
+        self.message = message
+        super().__init__(self.message)
+
 class InvalidCommandError(CommandError):
     """Invalid command error"""
     def __init__(self, command):
@@ -54,7 +67,8 @@ class InvalidSubcommandError(CommandError):
         super().__init__(self.message)
 
 class CommandManager(Completer):
-    def __init__(self, tm, console):
+    def __init__(self, settings, tm, console):
+        self.settings = settings
         self.tm = tm
         self.task = None
         self.console = console
@@ -63,6 +77,9 @@ class CommandManager(Completer):
         self.commands_task = OrderedDict()
         self.commands = self.commands_main
         self.log = logger.bind(src="CommandManager")
+        self.custom_command_manager = CustomCommandManager()
+        self.custom_command_manager.add_command_dir(Path(__pkgpath__ / "commands" ))
+        self.custom_command_manager.add_command_dir(Path(self.settings['config_dir']) / "commands" )
         self.init()
         
     @property
@@ -72,14 +89,32 @@ class CommandManager(Completer):
     def init(self):
         """Initialize all registered commands"""
         commands = []
+        
+        # Initialize built-in commands
         for command_class in COMMANDS:
             command = command_class(self)
             self.register_command(command)
             commands.append(command)
         
+        # Initialize custom commands
+        custom_commands = self.custom_command_manager.scan_commands()
+        for custom_command in custom_commands:
+            # Validate command name doesn't conflict
+            if self.custom_command_manager.validate_command_name(
+                custom_command.name, 
+                list(self.commands_main.keys()) + list(self.commands_task.keys())
+            ):
+                custom_command.manager = self  # Set manager reference
+                self.register_command(custom_command)
+                commands.append(custom_command)
+        
+        # Initialize all commands
         for command in commands:
             command.init()
-        self.log.info(f"Initialized {len(commands)} commands")
+        
+        built_in_count = len(COMMANDS)
+        custom_count = len(custom_commands)
+        self.log.info(f"Initialized {built_in_count} built-in commands and {custom_count} custom commands")
 
     def is_task_mode(self):
         return self.mode == CommandMode.TASK
@@ -96,6 +131,127 @@ class CommandManager(Completer):
         self.mode = CommandMode.MAIN
         self.task = None
         self.commands = self.commands_main
+    
+    def create_key_bindings(self):
+        """创建键绑定"""
+        kb = KeyBindings()
+        
+        @kb.add('@')  # @: 插入 @ 并补齐文件路径
+        def _(event):
+            """按 @ 插入符号并进入文件补齐模式"""
+            buffer = event.app.current_buffer
+            
+            # 插入 @ 符号
+            buffer.insert_text('@')
+            
+            # 创建文件补齐器，使用 @ 作为前缀
+            file_completer = self._create_path_completer(prefix='@')
+            
+            # 临时切换到文件补齐器
+            buffer.completer = file_completer
+            
+            # 触发补齐
+            buffer.start_completion()
+        
+        @kb.add('c-f')  # Ctrl+F: 直接补齐文件路径（不插入 @）
+        def _(event):
+            """按 Ctrl+F 直接进入文件补齐模式（不插入 @）"""
+            buffer = event.app.current_buffer
+            
+            # 创建文件补齐器，不使用前缀
+            path_completer = self._create_path_completer(prefix=None)
+            
+            # 临时切换到路径补齐器
+            buffer.completer = path_completer
+            
+            # 触发补齐
+            buffer.start_completion()
+            
+        @kb.add('escape', eager=True)  # ESC: 恢复默认补齐模式
+        def _(event):
+            """按ESC恢复默认补齐模式"""
+            buffer = event.app.current_buffer
+            
+            # 直接恢复到CommandManager作为补齐器
+            buffer.completer = self
+            
+            # 关闭当前的补齐窗口
+            if buffer.complete_state:
+                buffer.cancel_completion()
+            
+        @kb.add('c-t')  # Ctrl+T: 插入当前时间戳
+        def _(event):
+            """按Ctrl+T插入当前时间戳"""
+            from datetime import datetime
+            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            event.app.current_buffer.insert_text(timestamp)
+        
+        return kb
+    
+    def _create_path_completer(self, prefix=None):
+        """创建通用路径补齐器
+        
+        Args:
+            prefix: 如果设置（如 '@'），则查找该前缀后的路径；否则从光标位置开始补齐
+        """
+        import glob
+        import os
+        import shlex
+        
+        class PathCompleter(Completer):
+            def __init__(self, prefix_char):
+                self.prefix = prefix_char
+            
+            def get_completions(self, document, complete_event):
+                text = document.text_before_cursor
+                
+                # 根据是否有前缀确定路径起始位置
+                if self.prefix:
+                    # 查找前缀位置
+                    prefix_pos = text.rfind(self.prefix)
+                    if prefix_pos == -1:
+                        return
+                    path = text[prefix_pos + 1:]
+                else:
+                    # Ctrl+F 模式：从当前位置开始补齐
+                    # 不分割文本，直接使用全部文本作为路径
+                    # 这样可以处理包含空格的路径
+                    path = text.strip()
+                
+                # 处理可能的引号（如果用户输入了引号包裹的路径）
+                try:
+                    if path and (path[0] in ('"', "'") or '"' in path or "'" in path):
+                        # 尝试解析引号
+                        parsed = shlex.split(path)
+                        path = parsed[0] if parsed else path
+                except ValueError:
+                    # 引号不匹配，使用原始路径
+                    pass
+                
+                # 使用 glob 匹配文件
+                pattern = path + '*' if path else '*'
+                matches = glob.glob(pattern)
+                
+                for match in matches:
+                    # 跳过隐藏文件
+                    if os.path.basename(match).startswith('.'):
+                        continue
+                    
+                    # 如果文件名包含空格，使用引号包裹
+                    completion_text = shlex.quote(match) if ' ' in match else match
+                    
+                    # 生成补齐项
+                    display = match
+                    if os.path.isdir(match):
+                        display += '/'
+                    
+                    yield Completion(
+                        completion_text,
+                        start_position=-len(path),
+                        display=display
+                    )
+        
+        return PathCompleter(prefix)
 
     def register_command(self, command):
         """Register a command instance"""
@@ -139,6 +295,8 @@ class CommandManager(Completer):
         if arguments is None:
             # 当没有参数时（如只有主命令），不进行参数补齐
             return
+        
+        # 简化的补齐逻辑：统一处理，不区分特殊情况
         if text.endswith(' '):
             yield from self._complete_after_space(words, arguments, command_instance, subcmd)
         else:
@@ -161,7 +319,7 @@ class CommandManager(Completer):
     def _complete_subcommands(self, words, command_instance):
         """补齐子命令"""
         partial_subcmd = words[1] if len(words) > 1 else ''
-        yield from self._complete_items(command_instance.subcommands.values(), partial_subcmd)
+        yield from self._complete_items(command_instance.get_subcommands().values(), partial_subcmd)
 
     def _get_command_and_arguments(self, words):
         """获取命令实例和参数"""
@@ -197,7 +355,7 @@ class CommandManager(Completer):
         # 检查位置参数
         for arg_name, arg in arguments.items():
             if not arg_name.startswith('-') and arg['requires_value']:
-                choices = command_instance.get_arg_values(arg, subcmd)
+                choices = command_instance.get_arg_values(arg, subcmd, '')
                 if choices:
                     yield from self._complete_items(choices, '')
                     return
@@ -220,11 +378,19 @@ class CommandManager(Completer):
         if last_word and last_word.startswith('-'):
             arg = arguments.get(last_word, None)
             if arg and arg['requires_value']:
-                choices = command_instance.get_arg_values(arg, subcmd)
+                choices = command_instance.get_arg_values(arg, subcmd, partial_arg)
                 if choices:
                     yield from self._complete_items(choices, partial_arg)
                 return
 
+        # 检查是否是位置参数的输入
+        for arg_name, arg in arguments.items():
+            if not arg_name.startswith('-') and arg['requires_value']:
+                choices = command_instance.get_arg_values(arg, subcmd, partial_arg)
+                if choices:
+                    yield from self._complete_items(choices, partial_arg)
+                    return
+        
         # 显示所有可用参数
         yield from self._complete_items(arguments.values(), partial_arg)
 
@@ -235,7 +401,7 @@ class CommandManager(Completer):
             return
 
         # 尝试通过 get_arg_values 获取选项
-        choices = command_instance.get_arg_values(arg, subcmd)
+        choices = command_instance.get_arg_values(arg, subcmd, '')
         if choices:
             yield from self._complete_items(choices, '')
             return
@@ -281,15 +447,38 @@ class CommandManager(Completer):
             parsed_args.raw_args = args[1:]
             ret = command_instance.execute(parsed_args)
         except SystemExit as e:
-            raise CommandError(f"SystemExit: {user_input}") from e
+            raise CommandError(f"SystemExit: {e}")
         except argparse.ArgumentError as e:
-            raise CommandInputError(user_input) from e
+            raise CommandArgumentError(f"ArgumentError: {e}") from e
         except Exception as e:
             raise CommandError(f"Error: {e}") from e
         
-        return {
-            'command': command,
-            'subcommand': getattr(parsed_args, 'subcommand', None),
-            'args': parsed_args,
-            'ret': ret,
-        }
+        return CommandResult(command=command, subcommand=getattr(parsed_args, 'subcommand', None), args=vars(parsed_args), result=ret)
+    
+    def reload_custom_commands(self):
+        """Reload all custom commands"""
+        # Remove existing custom commands
+        custom_command_names = []
+        for name, command in list(self.commands_main.items()):
+            if hasattr(command, 'file_path'):  # It's a custom command
+                custom_command_names.append(name)
+                del self.commands_main[name]
+        
+        for name, command in list(self.commands_task.items()):
+            if hasattr(command, 'file_path'):  # It's a custom command
+                custom_command_names.append(name)
+                del self.commands_task[name]
+        
+        # Reload custom commands
+        custom_commands = self.custom_command_manager.reload_commands()
+        for custom_command in custom_commands:
+            if self.custom_command_manager.validate_command_name(
+                custom_command.name,
+                list(self.commands_main.keys()) + list(self.commands_task.keys())
+            ):
+                custom_command.manager = self
+                self.register_command(custom_command)
+                custom_command.init()
+        
+        self.log.info(f"Reloaded {len(custom_commands)} custom commands")
+        return len(custom_commands)

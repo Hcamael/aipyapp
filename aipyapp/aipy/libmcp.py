@@ -44,7 +44,12 @@ async def _patched_handle_json_response(
             await read_stream_writer.send(session_message)
     except Exception as exc:
         logger.error(f"Error parsing JSON response: {exc}")
-        await read_stream_writer.send(exc)
+        try:
+            await read_stream_writer.aclose()
+        except Exception as close_exc:
+            logger.error(f"Error closing read_stream_writer: {close_exc}")
+        # 重新抛出异常，让上层调用者处理
+        raise exc
 
 # 应用猴子补丁
 def _apply_streamable_http_patch():

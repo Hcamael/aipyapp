@@ -17,6 +17,26 @@ class ChatMessage:
     content: Union[str, List[Dict[str, Any]]]
     reason: str = None
     usage: Counter = field(default_factory=Counter)
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """转换为字典用于序列化"""
+        return {
+            '__type__': 'ChatMessage',
+            'role': self.role,
+            'content': self.content,
+            'reason': self.reason,
+            'usage': dict(self.usage) if self.usage else {}
+        }
+    
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'ChatMessage':
+        """从字典恢复对象"""
+        return cls(
+            role=data.get('role', 'assistant'),
+            content=data.get('content', ''),
+            reason=data.get('reason', ''),
+            usage=Counter(data.get('usage', {}))
+        )
 
 class BaseClient(ABC):
     MODEL = None

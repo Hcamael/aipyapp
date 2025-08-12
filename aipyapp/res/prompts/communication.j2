@@ -3,6 +3,8 @@
 <output_format>
 The output must be in structured Markdown format and adhere to the following rules:
 
+{% include "task_status_header.j2" %}
+
 <code_block_markup>
 1. Code blocks must be enclosed within a pair of HTML comment markers, formatted as follows:
    - Start: `<!-- Block-Start: {"name": "code block name", "version": numeric version like 1/2/3, "path": "optional file path for the code block"} -->`
@@ -26,7 +28,7 @@ If a code block should be executed, include a separate single-line HTML comment:
   <!-- Cmd-Exec: {"name": "block_name_to_execute"} -->
 
 Rules:
-- Only one Cmd-Exec is allowed per message.
+- Multiple Cmd-Exec commands can be used in a single message.
 - Refers to a previously defined code block in current or earlier messages.
 - Refers to the latest version (highest number) of that block.
 - Use Cmd-Exec instead of repeating blocks.
@@ -41,7 +43,33 @@ Platform restrictions:
 - `applescript`: macOS only
 </exec_command>
 
+<edit_command>
+To modify existing code blocks incrementally, use the edit command:
+  <!-- Cmd-Edit: {"name": "block_name_to_edit", "old": "code_to_replace", "new": "replacement_code", "replace_all": false} -->
+
+Rules:
+- `name`: Refers to an existing code block (latest version will be used)
+- `old`: Exact string to find and replace (must match exactly, including whitespace)
+- `new`: Replacement string (can be empty for deletion)
+- `replace_all`: Optional boolean (default: false)
+  - `false`: Replace only the first occurrence (safer, prevents accidental multiple replacements)
+  - `true`: Replace all occurrences (use when you want to replace multiple instances)
+
+Benefits of editing vs. rewriting full blocks:
+- More efficient (smaller messages, less tokens)
+- Clearer intent (shows exactly what changed)
+- Preserves context (LLM doesn't need to regenerate entire block)
+
+Error handling:
+- If `old` string is not found: Edit fails with error message
+- If `old` string appears multiple times and `replace_all` is false: Edit fails with error message
+- Always provide sufficient context in `old` string to ensure unique matching
+
+Multiple Cmd-Edit commands can be used in a single message and will be processed in order. Each command performs one find-and-replace operation.
+</edit_command>
+
 <good_example>
+Example 1 - Creating and executing a code block:
 <!-- Block-Start: {"name": "fetch_data", "version": 2, "path": "fetch.py"} -->
 ```python
 import requests
@@ -51,13 +79,24 @@ print(resp.text)
 <!-- Block-End: {"name": "fetch_data"} -->
 
 <!-- Cmd-Exec: {"name": "fetch_data"} -->
+
+Example 2 - Editing an existing code block:
+<!-- Cmd-Edit: {"name": "fetch_data", "old": "https://example.com", "new": "https://httpbin.org/json"} -->
+
+Example 3 - Multiple operations in sequence:
+<!-- Cmd-Edit: {"name": "fetch_data", "old": "print(resp.text)", "new": "print(resp.json())"} -->
+<!-- Cmd-Exec: {"name": "fetch_data"} -->
+
+Example 4 - Editing with replace_all:
+<!-- Cmd-Edit: {"name": "fetch_data", "old": "resp", "new": "response", "replace_all": true} -->
 </good_example>
 
 </output_format>
 
 <execution_results>
-The execution results of the code blocks will be feedback by user in the following format:
+The results of code execution and editing operations will be provided in the following formats:
 
+**Code Execution Results:**
 ```
 <results>
 <result code_block_name="code_block_name">
@@ -74,9 +113,36 @@ json_string is the execution result of the code block, which is a JSON object wi
 - `traceback`: Exception stack trace. (only for python code blocks)
 - `returncode`: The return code of the code block. (only for bash, powershell, applescript, javascript code blocks)
 
+**Edit Operation Results:**
+```
+<edit_results>
+<edit_result block_name="block_name">
+{
+  "success": boolean,
+  "message": "description of the edit result",
+  "block_name": "name of the edited block",
+  "old_str": "the string that was replaced (truncated if long)",
+  "new_str": "the replacement string (truncated if long)",
+  "replace_all": boolean,
+  "new_version": integer (version number of the newly created block)
+}
+</edit_result>
+</edit_results>
+```
+
+**Mixed Operation Results:**
+When both edit and execution commands are used in a single message, results are provided in processing order:
+```
+<mixed_results>
+<edit_result block_name="block_name">...</edit_result>
+<exec_result block_name="block_name">...</exec_result>
+</mixed_results>
+```
+
 Note: 
 - Empty attributes are excluded from the JSON output.
 - You should combine the code and feedback data to make decisions.
+- Edit operations create new versions of code blocks; execution always uses the latest version.
 
 </execution_results>
 </communication_rules>

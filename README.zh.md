@@ -1,3 +1,4 @@
+![logo](https://github.com/user-attachments/assets/3af4e228-79b2-4fa0-a45c-c38276c6db91)
 # Python use
 AIPy 是 Python-use 概念的一个具体实现，旨在展示该理念的实际价值与应用潜力。
 
@@ -32,35 +33,23 @@ Python use (aipython) 是一个集成 LLM 的 Python 命令行解释器。你可
 
 而且，两种模式可以互相访问数据。例如，aipython 处理完你的自然语言命令后，你可以用标准 Python 命令查看各种数据。
 
-## Interfaces
-### ai 对象
-- \_\_call\_\_(instruction): 执行自动处理循环，直到 LLM 不再返回代码消息
-- save(path): 保存交互过程到 svg 或 html 文件
-- llm 属性： LLM 对象
-- runner 属性： Runner 对象
-
-### LLM 对象
-- history 属性： 用户和LLL交互过程的消息历史
-
-### Runner 对象
-- globals: 执行 LLM 返回代码的 Python 环境全局变量
-- locals: 执行 LLM 返回代码的 Python 环境局部变量
-
-### runtime 对象
-供 LLM 生成的代码调用，提供以下接口：
-- install_packages(packages): 申请安装第三方包
-- getenv(name, desc=None): 获取环境变量
-- display(path=None, url=None): 在终端显示图片
-
-## Usage
+## 使用
 AIPython 有两种运行模式：
 - 任务模式：非常简单易用，直接输入你的任务即可，适合不熟悉 Python 的用户。
 - Python模式：适合熟悉 Python 的用户，既可以输入任务也可以输入 Python 命令，适合高级用户。
 
 默认运行模式是任务模式，可以通过 `--python` 参数切换到 Python 模式。
 
+### 最小配置
+~/.aipyapp/aipyapp.toml:
+```toml
+[llm.deepseek]
+type = "deepseek"
+api_key = "Your DeepSeek API Key"
+```
+
 ### 任务模式
-`uv run aipython`
+`uv run aipy`
 
 ```
 >>> 获取Reddit r/LocalLLaMA 最新帖子
@@ -98,9 +87,6 @@ Python use - AIPython (Quit with 'exit()')
 如果同意且已安装，请输入 'y [y/n] (n): y
 
 ```
-
-## TODO
-- 使用 AST 自动检测和修复 LLM 返回的 Python 代码
 
 ## Thanks
 - 黑哥: 产品经理/资深用户/首席测试官

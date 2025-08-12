@@ -81,6 +81,8 @@ class PythonExecutor():
                 exec(co, gs)
             self.block_importer.add_module(block.name, co)
         except (SystemExit, Exception) as e:
+            self.runtime.set_state(success=False, error=str(e))
+            self.log.error(f"Error in code block {block.name}: {str(e)}")
             result['errstr'] = str(e)
             result['traceback'] = traceback.format_exc()
         finally:

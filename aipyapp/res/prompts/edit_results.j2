@@ -1,0 +1,22 @@
+{# 代码块编辑结果反馈模版
+参数:
+- results 字典，字典的键是代码块的名称，值是编辑操作的结果 
+#}
+<edit_results>
+These are the results of the code block edit operations in the previous message.
+
+{% for name, result in results.items() %}
+<edit_result block_name="{{ name }}">
+{
+  "success": {{ result.success|tojson }},
+  "message": {{ result.message|tojson }},
+  "block_name": {{ result.block_name|tojson }},
+  "old_str": {{ result.old_str|tojson }},
+  "new_str": {{ result.new_str|tojson }},
+  "replace_all": {{ result.replace_all|tojson }}{% if result.new_version %},
+  "new_version": {{ result.new_version }}{% endif %}
+}
+</edit_result>
+{% endfor %}
+
+</edit_results>

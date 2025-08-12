@@ -1,6 +1,5 @@
 import argparse
 from collections import OrderedDict
-from typing import List
 
 from .base import BaseCommand, Completable
 
@@ -14,15 +13,19 @@ def requires_value(action):
 
 class ParserCommand(BaseCommand):
     """Base class for all commands"""
-    def __init__(self, manager):
+    def __init__(self, manager=None):
         super().__init__(manager)
         self.parser = None
         self.arguments = None
         self.subcommands = None
 
+    def get_subcommands(self):
+        """Get subcommands"""
+        return self.subcommands
+    
     def init(self):
         """Initialize the command, can be overridden by subclasses"""
-        parser = argparse.ArgumentParser(prog=f'/{self.name}', description=self.description)
+        parser = argparse.ArgumentParser(prog=f'/{self.name}', description=self.description, exit_on_error=False)
         self.add_arguments(parser)
         if hasattr(self, 'add_subcommands'):
             subparsers = parser.add_subparsers(dest='subcommand')
@@ -103,7 +106,7 @@ class ParserCommand(BaseCommand):
         """Add command-specific arguments to the parser"""
         pass
     
-    def get_arg_values(self, arg, subcommand=None):
+    def get_arg_values(self, arg, subcommand=None, partial_value=''):
         """Get argument values for argument `arg`"""
         choices = arg.get('choices')
         if choices:

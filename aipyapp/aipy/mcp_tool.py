@@ -1,10 +1,10 @@
 import json
 import re
 import hashlib
+from collections import namedtuple
 from . import cache
 from .libmcp import MCPClientSync, MCPConfigReader
 from .. import T
-
 
 def build_function_call_tool_name(server_name: str, tool_name: str) -> str:
     """
@@ -62,35 +62,11 @@ class MCPToolManager:
         self._inited = False
 
         # 全局启用/禁用用户MCP标志，默认禁用
-        self._mcp_globally_enabled = False
+        self._user_mcp_enabled = False
+        self._sys_mcp_enabled = False
+
         # 服务器状态缓存，记录每个服务器的启用/禁用状态
         self._server_status = self._init_server_status()
-
-    def get_status(self):
-        sys_mcp_info = self.get_server_info(mcp_type="sys")
-        user_mcp_info = self.get_server_info(mcp_type="user")
-        total_tools = 0
-        enabled_tools = 0
-        enabled_servers = 0
-        total_servers = 0
-        for server_name, server_info in sys_mcp_info.items():
-            total_servers += 1
-            if server_info['enabled']:
-                enabled_servers += 1
-                enabled_tools += server_info['tools_count']
-            total_tools += server_info['tools_count']
-        for server_name, server_info in user_mcp_info.items():
-            total_servers += 1
-            if server_info['enabled']:
-                enabled_servers += 1
-                enabled_tools += server_info['tools_count']
-            total_tools += server_info['tools_count']
-        return {
-            'total_servers': total_servers,
-            'total_tools': total_tools,
-            'enabled_servers': enabled_servers,
-            'enabled_tools': enabled_tools,
-        }
 
     def _init_server_status(self):
         """初始化服务器状态，从配置文件中读取初始状态，包括禁用的服务器，同时会被命令行更新，维护在内存中"""
@@ -129,10 +105,10 @@ class MCPToolManager:
         ]
         """
         if mcp_type == "user":
-            if not self._mcp_globally_enabled and not force_load:
+            if not self._user_mcp_enabled and not force_load:
                 return []
             mcp_servers = self.user_mcp
-            if self._mcp_globally_enabled:
+            if self._user_mcp_enabled:
                 print(
                     T(
                         "Initializing MCP server, this may take a while if it's "
@@ -221,7 +197,7 @@ class MCPToolManager:
             # sys_mcp服务器只需要服务器启用
             server_enabled = self._server_status.get(server_name, True)
             if is_user_server:
-                server_enabled = server_enabled and self._mcp_globally_enabled
+                server_enabled = server_enabled and self._user_mcp_enabled
 
             if server_enabled:
                 for tool in tools:
@@ -341,127 +317,94 @@ class MCPToolManager:
                 }]
             }
 
-    def process_command(self, args):
-        """处理命令行参数，执行相应操作
-
-        Args:
-            args (list): 命令行参数列表，例如 [], ["enable"], ["disable"],
-                         ["enable", "playwright"], ["disable", "playwright"]
-
-        Returns:
-            dict: 执行结果
+    @property
+    def is_mcp_enabled(self):
+        """是否需要启用MCP处理
+        1. 如果系统MCP全局启用，则返回True
+        2. 如果用户MCP全局禁用，则返回False
+        3. 如果用户MCP全局启用，则返回用户MCP服务器中是否至少有一个服务器启用
         """
-        assert len(args) > 0, "No arguments provided"
-        # 第一个参数是action
-        action = args[0].lower() or "list"
-
-        # 处理全局启用/禁用命令
-        if action == "enable" or action == "disable":
-            # 检查是全局操作还是针对特定服务器
-            if len(args) == 1:
-                # 全局启用/禁用
-                if action == "enable":
-                    self._mcp_globally_enabled = True
-                    # 重新加载用户MCP工具，因为之前可能因为全局禁用而没有加载
-                    self.list_tools(mcp_type="user")
-                    return {
-                        "status": "success",
-                        "action": "global_enable",
-                        "globally_enabled": self._mcp_globally_enabled,
-                        "servers": self.get_server_info(),
-                    }
-                else:  # disable
-                    self._mcp_globally_enabled = False
-                    return {
-                        "status": "success",
-                        "action": "global_disable",
-                        "globally_enabled": self._mcp_globally_enabled,
-                        "servers": self.get_server_info(),
-                    }
-            elif len(args) == 2:
-                # 针对特定服务器的启用/禁用
-                server_name = args[1]
-
-                # 处理特殊情况：星号操作符，对所有服务器执行相同操作
-                if server_name == "*":
-                    # 遍历所有服务器并设置状态（不改变全局启用/禁用状态）
-                    for srv_name in self.user_mcp.keys():
-                        self._server_status[srv_name] = action == "enable"
-
-                    # 刷新工具列表
-                    self.list_tools()
-                    return {
-                        "status": "success",
-                        "action": f"all_servers_{action}",
-                        "globally_enabled": self._mcp_globally_enabled,
-                        "servers": self.get_server_info(),
-                    }
-
-                # 检查服务器是否存在
-                if server_name not in self.user_mcp:
-                    return {
-                        "status": "error",
-                        "message": f"Unknown server: {server_name}",
-                    }
-
-                if action == "enable":
-                    self._server_status[server_name] = True
-                    # 刷新工具列表
-                    self.list_tools()
-                    return {
-                        "status": "success",
-                        "action": "server_enable",
-                        "server": server_name,
-                        "globally_enabled": self._mcp_globally_enabled,
-                        "servers": self.get_server_info(),
-                    }
-                else:  # disable
-                    self._server_status[server_name] = False
-                    # 刷新工具列表
-                    self.list_tools()
-                    return {
-                        "status": "success",
-                        "action": "server_disable",
-                        "server": server_name,
-                        "globally_enabled": self._mcp_globally_enabled,
-                        "servers": self.get_server_info(),
-                    }
-        elif action == "list":
-            return {
-                "status": "success",
-                "action": "list",
-                "globally_enabled": self._mcp_globally_enabled,
-                "servers": self.get_server_info(),
-            }
-
-        # 如果没有匹配任何已知命令
-        return {"status": "error", "message": f"Invalid command: {' '.join(args)}"}
-
-    def process_tool_cmd(self, args):
-        """处理工具命令，执行相应操作
-
-        Args:
-            args (list): 命令行参数列表，例如 [], ["enable"], ["disable"],
-
-        Returns:
-            dict: 执行结果
-        """
-        if not args:
-            args = ["enable"]
-            
-        action = args[0].lower()
-
-        if action == "enable":
-            for server_name in self.sys_mcp:
-                self._server_status[server_name] = True
-        elif action == "disable":
-            for server_name in self.sys_mcp:
-                self._server_status[server_name] = False
-        elif action == "list":
-            pass
-        else:
-            return {"status": "error", "message": f"Invalid command: {action}"}
-            
-        self.list_tools(mcp_type="sys")
+        if self._sys_mcp_enabled:
+            return True
         
-        return self.get_server_info(mcp_type="sys")
+        if not self._user_mcp_enabled:
+            return False
+        
+        user_server_status = [self._server_status.get(server_name, False) for server_name in self.user_mcp]
+        return any(user_server_status)
+    
+    @property
+    def is_sys_mcp_enabled(self):
+        return self._sys_mcp_enabled
+    
+    @property
+    def is_user_mcp_enabled(self):
+        return self._user_mcp_enabled
+    
+    def enable_user_mcp(self, enable=True):
+        """全局启用/禁用用户MCP"""
+        self._user_mcp_enabled = enable
+        if enable:
+            self.list_tools(mcp_type="user")
+        return True
+        
+    def enable_sys_mcp(self, enable=True):
+        """全局启用/禁用系统MCP"""
+        self._sys_mcp_enabled = enable
+        for server_name in self.sys_mcp:
+            self._server_status[server_name] = enable
+        if enable:
+            self.list_tools(mcp_type="sys")
+        return True
+            
+    def enable_user_server(self, server_name, enable=True):
+        """启用/禁用指定用户MCP服务器"""
+        if server_name == "*" or not server_name:
+            for srv_name in self.user_mcp.keys():
+                self._server_status[srv_name] = enable
+            ret = True
+        elif server_name in self.user_mcp:
+            self._server_status[server_name] = enable
+            ret = True
+        else:
+            return False
+            
+        self.list_tools(mcp_type="user")
+        return ret
+
+    def list_user_servers(self):
+        """返回所有用户MCP服务器列表"""
+        status = self.get_server_info(mcp_type="user")
+        ServerRecord = namedtuple("ServerRecord", ["Name", "Enabled", "ToolsCount"])
+        return [ServerRecord(name, info['enabled'], info['tools_count']) for name, info in status.items()]
+    
+    def get_status(self):
+        """返回MCP状态信息供状态栏使用"""
+        total_tools = 0
+        enabled_tools = 0
+        enabled_servers = 0
+        total_servers = 0
+
+        sys_mcp_info = self.get_server_info(mcp_type="sys")
+        for server_name, server_info in sys_mcp_info.items():
+            total_servers += 1
+            if server_info['enabled']:
+                enabled_servers += 1
+                enabled_tools += server_info['tools_count']
+            total_tools += server_info['tools_count']
+        if self.is_user_mcp_enabled:
+            user_mcp_info = self.get_server_info(mcp_type="user")
+            for server_name, server_info in user_mcp_info.items():
+                total_servers += 1
+                if server_info['enabled']:
+                    enabled_servers += 1
+                    enabled_tools += server_info['tools_count']
+                total_tools += server_info['tools_count']
+        return {
+            'sys_mcp_enabled': self._sys_mcp_enabled,
+            'user_mcp_enabled': self._user_mcp_enabled,
+            'total_servers': total_servers,
+            'total_tools': total_tools,
+            'enabled_servers': enabled_servers,
+            'enabled_tools': enabled_tools,
+        }
