@@ -1,484 +1,389 @@
+"""重构后的命令管理器 - 职责分离"""
+
 import shlex
 import argparse
 from collections import OrderedDict
-from dataclasses import dataclass
-from typing import Any
-
-from ... import __pkgpath__
-from .base import BaseCommand, CommandMode
-from .cmd_info import InfoCommand
-from .cmd_help import HelpCommand
-from .cmd_llm import LLMCommand
-from .cmd_role import RoleCommand
-from .cmd_task import TaskCommand
-from .cmd_mcp import MCPCommand
-from .cmd_display import DisplayCommand
-from .cmd_context import ContextCommand
-from .cmd_steps import StepsCommand
-from .cmd_block import BlockCommand
-from .cmd_plugin import Command as PluginCommand
-from .cmd_custom import CustomCommand
-from .custom_command_manager import CustomCommandManager
-from .result import CommandResult
-
-from loguru import logger
+from typing import Dict, Optional, Any, List
 from prompt_toolkit.completion import Completer, Completion
-from prompt_toolkit.key_binding import KeyBindings
-from pathlib import Path
+from loguru import logger
 
-COMMANDS = [
-    InfoCommand, LLMCommand, RoleCommand, DisplayCommand, PluginCommand, StepsCommand, 
-    BlockCommand, ContextCommand, TaskCommand, MCPCommand, HelpCommand, CustomCommand,
-]
+from .common import CommandContext, CommandMode, CommandManagerConfig, CommandError, CommandResult
+from .base import Command
+from .completer import CompleterBase, CompleterContext
+from .custom.manager import CustomCommandManager
+from .builtin import BUILTIN_COMMANDS
+from .keybindings import create_key_bindings
 
-@dataclass
-class CommandContext:
-    """命令执行上下文"""
-    task: Any = None
-    tm: Any = None
-    console: Any = None
-
-class CommandError(Exception):
-    """Command error"""
-    pass
-
-class CommandInputError(CommandError):
-    """Command input error"""
-    def __init__(self, message):
-        self.message = message
-        super().__init__(self.message)
-
-class CommandArgumentError(CommandError):
-    """Command argument error"""
-    def __init__(self, message):
-        self.message = message
-        super().__init__(self.message)
-
-class InvalidCommandError(CommandError):
-    """Invalid command error"""
-    def __init__(self, command):
-        self.command = command
-        super().__init__(f"Invalid command: {command}")
-
-class InvalidSubcommandError(CommandError):
-    """Invalid subcommand error"""
-    def __init__(self, message):
-        self.message = message
-        super().__init__(self.message)
-
-class CommandManager(Completer):
-    def __init__(self, settings, tm, console):
-        self.settings = settings
-        self.tm = tm
-        self.task = None
-        self.console = console
-        self.mode = CommandMode.MAIN
-        self.commands_main = OrderedDict()
-        self.commands_task = OrderedDict()
-        self.commands = self.commands_main
-        self.log = logger.bind(src="CommandManager")
-        self.custom_command_manager = CustomCommandManager()
-        self.custom_command_manager.add_command_dir(Path(__pkgpath__ / "commands" ))
-        self.custom_command_manager.add_command_dir(Path(self.settings['config_dir']) / "commands" )
-        self.init()
-        
+class CommandRegistry:
+    """
+    命令注册表
+    
+    负责命令的注册和查找
+    """
+    
+    def __init__(self):
+        self._commands: OrderedDict[str, Command] = OrderedDict()
+        self.aliases: Dict[str, str] = {}  # 别名 -> 命令名
+        self.commands_by_mode: Dict[CommandMode, List[Command]] = {
+            CommandMode.MAIN: [],
+            CommandMode.TASK: []
+        }
+    
     @property
-    def context(self):
-        return CommandContext(task=self.task, tm=self.tm, console=self.console)
+    def commands(self) -> OrderedDict[str, Command]:
+        """获取所有命令"""
+        return self._commands
     
-    def init(self):
-        """Initialize all registered commands"""
-        commands = []
+    def register(self, command: Command):
+        """注册命令"""
+        # 注册主名称
+        self._commands[command.name] = command
         
-        # Initialize built-in commands
-        for command_class in COMMANDS:
-            command = command_class(self)
-            self.register_command(command)
-            commands.append(command)
+        # 注册别名
+        if hasattr(command, 'aliases'):
+            for alias in command.aliases:
+                self.aliases[alias] = command.name
         
-        # Initialize custom commands
-        custom_commands = self.custom_command_manager.scan_commands()
-        for custom_command in custom_commands:
-            # Validate command name doesn't conflict
-            if self.custom_command_manager.validate_command_name(
-                custom_command.name, 
-                list(self.commands_main.keys()) + list(self.commands_task.keys())
-            ):
-                custom_command.manager = self  # Set manager reference
-                self.register_command(custom_command)
-                commands.append(custom_command)
-        
-        # Initialize all commands
-        for command in commands:
-            command.init()
-        
-        built_in_count = len(COMMANDS)
-        custom_count = len(custom_commands)
-        self.log.info(f"Initialized {built_in_count} built-in commands and {custom_count} custom commands")
-
-    def is_task_mode(self):
-        return self.mode == CommandMode.TASK
+        # 按模式分类
+        for mode in command.modes:
+            self.commands_by_mode[mode].append(command)
     
-    def is_main_mode(self):
-        return self.mode == CommandMode.MAIN
+    def unregister(self, name: str):
+        """注销命令"""
+        if name in self._commands:
+            command = self._commands[name]
+            del self._commands[name]
+            
+            # 移除别名
+            for alias, cmd_name in list(self.aliases.items()):
+                if cmd_name == name:
+                    del self.aliases[alias]
+            
+            # 从模式列表中移除
+            for mode in command.modes:
+                if command in self.commands_by_mode[mode]:
+                    self.commands_by_mode[mode].remove(command)
     
-    def set_task_mode(self, task):
-        self.task = task
-        self.mode = CommandMode.TASK
-        self.commands = self.commands_task
-
-    def set_main_mode(self):
-        self.mode = CommandMode.MAIN
-        self.task = None
-        self.commands = self.commands_main
+    def get(self, name: str) -> Optional[Command]:
+        """获取命令"""
+        # 先检查直接名称
+        if name in self._commands:
+            return self._commands[name]
+        
+        # 再检查别名
+        if name in self.aliases:
+            return self._commands.get(self.aliases[name])
+        
+        return None
     
-    def create_key_bindings(self):
-        """创建键绑定"""
-        kb = KeyBindings()
-        
-        @kb.add('@')  # @: 插入 @ 并补齐文件路径
-        def _(event):
-            """按 @ 插入符号并进入文件补齐模式"""
-            buffer = event.app.current_buffer
-            
-            # 插入 @ 符号
-            buffer.insert_text('@')
-            
-            # 创建文件补齐器，使用 @ 作为前缀
-            file_completer = self._create_path_completer(prefix='@')
-            
-            # 临时切换到文件补齐器
-            buffer.completer = file_completer
-            
-            # 触发补齐
-            buffer.start_completion()
-        
-        @kb.add('c-f')  # Ctrl+F: 直接补齐文件路径（不插入 @）
-        def _(event):
-            """按 Ctrl+F 直接进入文件补齐模式（不插入 @）"""
-            buffer = event.app.current_buffer
-            
-            # 创建文件补齐器，不使用前缀
-            path_completer = self._create_path_completer(prefix=None)
-            
-            # 临时切换到路径补齐器
-            buffer.completer = path_completer
-            
-            # 触发补齐
-            buffer.start_completion()
-            
-        @kb.add('escape', eager=True)  # ESC: 恢复默认补齐模式
-        def _(event):
-            """按ESC恢复默认补齐模式"""
-            buffer = event.app.current_buffer
-            
-            # 直接恢复到CommandManager作为补齐器
-            buffer.completer = self
-            
-            # 关闭当前的补齐窗口
-            if buffer.complete_state:
-                buffer.cancel_completion()
-            
-        @kb.add('c-t')  # Ctrl+T: 插入当前时间戳
-        def _(event):
-            """按Ctrl+T插入当前时间戳"""
-            from datetime import datetime
-            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            event.app.current_buffer.insert_text(timestamp)
-        
-        return kb
+    def get_commands_by_mode(self, mode: CommandMode) -> List[Command]:
+        """获取特定模式的命令"""
+        return self.commands_by_mode.get(mode, [])
     
-    def _create_path_completer(self, prefix=None):
-        """创建通用路径补齐器
+class CommandExecutor:
+    """
+    命令执行器
+    
+    负责解析和执行命令
+    """
+    
+    def __init__(self, registry: CommandRegistry):
+        self.registry = registry
+        self.log = logger.bind(src="CommandExecutor")
+    
+    def execute(self, text: str, context: CommandContext) -> Any:
+        """
+        执行命令
         
         Args:
-            prefix: 如果设置（如 '@'），则查找该前缀后的路径；否则从光标位置开始补齐
+            text: 命令文本（带 / 前缀）
+            context: 执行上下文
+            
+        Returns:
+            命令执行结果
         """
-        import glob
-        import os
-        import shlex
-        
-        class PathCompleter(Completer):
-            def __init__(self, prefix_char):
-                self.prefix = prefix_char
-            
-            def get_completions(self, document, complete_event):
-                text = document.text_before_cursor
-                
-                # 根据是否有前缀确定路径起始位置
-                if self.prefix:
-                    # 查找前缀位置
-                    prefix_pos = text.rfind(self.prefix)
-                    if prefix_pos == -1:
-                        return
-                    path = text[prefix_pos + 1:]
-                else:
-                    # Ctrl+F 模式：从当前位置开始补齐
-                    # 不分割文本，直接使用全部文本作为路径
-                    # 这样可以处理包含空格的路径
-                    path = text.strip()
-                
-                # 处理可能的引号（如果用户输入了引号包裹的路径）
-                try:
-                    if path and (path[0] in ('"', "'") or '"' in path or "'" in path):
-                        # 尝试解析引号
-                        parsed = shlex.split(path)
-                        path = parsed[0] if parsed else path
-                except ValueError:
-                    # 引号不匹配，使用原始路径
-                    pass
-                
-                # 使用 glob 匹配文件
-                pattern = path + '*' if path else '*'
-                matches = glob.glob(pattern)
-                
-                for match in matches:
-                    # 跳过隐藏文件
-                    if os.path.basename(match).startswith('.'):
-                        continue
-                    
-                    # 如果文件名包含空格，使用引号包裹
-                    completion_text = shlex.quote(match) if ' ' in match else match
-                    
-                    # 生成补齐项
-                    display = match
-                    if os.path.isdir(match):
-                        display += '/'
-                    
-                    yield Completion(
-                        completion_text,
-                        start_position=-len(path),
-                        display=display
-                    )
-        
-        return PathCompleter(prefix)
-
-    def register_command(self, command):
-        """Register a command instance"""
-        if not isinstance(command, BaseCommand):
-            raise ValueError("Command must be an instance of BaseCommand")
-        
-        if CommandMode.MAIN in command.modes:
-            self.commands_main[command.name] = command
-        if CommandMode.TASK in command.modes:
-            self.commands_task[command.name] = command
-            
-    def get_completions(self, document, complete_event):
-        """获取自动补齐选项"""
-        text = document.text_before_cursor
+        # 验证命令格式
         if not text.startswith('/'):
-            return
-
-        text = text[1:]
+            raise ValueError(f"Invalid command format: {text}")
+        
+        # 解析命令
+        text = text[1:].strip()
+        if not text:
+            raise ValueError("Empty command")
+        
+        # 分割命令和参数
         try:
             words = shlex.split(text)
         except ValueError as e:
-            self.log.error(f"输入解析错误: {e}")
-            return
-
-        # 处理主命令补齐
-        if self._should_complete_main_command(words, text):
-            yield from self._complete_main_commands(words)
-            return
-
-        # 获取命令实例和参数
-        command_instance, arguments, subcmd = self._get_command_and_arguments(words)
-        if not command_instance:
-            return
-
-        # 处理子命令补齐
-        if self._should_complete_subcommand(words, text, command_instance):
-            yield from self._complete_subcommands(words, command_instance)
-            return
-
-        # 处理参数补齐
-        if arguments is None:
-            # 当没有参数时（如只有主命令），不进行参数补齐
-            return
+            raise ValueError(f"Failed to parse command: {e}")
         
-        # 简化的补齐逻辑：统一处理，不区分特殊情况
-        if text.endswith(' '):
-            yield from self._complete_after_space(words, arguments, command_instance, subcmd)
-        else:
-            yield from self._complete_partial_input(words, arguments, command_instance, subcmd)
-
-    def _should_complete_main_command(self, words, text):
-        """判断是否应该补齐主命令"""
-        return len(words) == 0 or (len(words) == 1 and not text.endswith(' '))
-
-    def _complete_main_commands(self, words):
-        """补齐主命令"""
-        partial_cmd = words[0] if len(words) > 0 else ''
-        yield from self._complete_items(self.commands.values(), partial_cmd)
-
-    def _should_complete_subcommand(self, words, text, command_instance):
-        """判断是否应该补齐子命令"""
-        return (command_instance.subcommands and 
-                (len(words) == 1 or (len(words) == 2 and not text.endswith(' '))))
-
-    def _complete_subcommands(self, words, command_instance):
-        """补齐子命令"""
-        partial_subcmd = words[1] if len(words) > 1 else ''
-        yield from self._complete_items(command_instance.get_subcommands().values(), partial_subcmd)
-
-    def _get_command_and_arguments(self, words):
-        """获取命令实例和参数"""
-        cmd = words[0]
-        if cmd not in self.commands:
-            return None, None, None
-
-        command_instance = self.commands[cmd]
-        subcommands = command_instance.subcommands
-
-        if subcommands:
-            if len(words) < 2:
-                # 当只有主命令时，返回命令实例但不设置子命令和参数
-                return command_instance, None, None
-            subcmd = words[1]
-            if subcmd not in subcommands:
-                return None, None, None
-            arguments = subcommands[subcmd]['arguments']
-        else:
-            subcmd = None
-            arguments = command_instance.arguments
-
-        return command_instance, arguments, subcmd
-
-    def _complete_after_space(self, words, arguments, command_instance, subcmd):
-        """处理以空格结尾的补齐"""
-        # 检查选项参数
-        for word in [words[-2] if len(words) > 1 else None, words[-1] if len(words) > 0 else None]:
-            if word and word.startswith('-'):
-                yield from self._complete_option_argument(word, arguments, command_instance, subcmd, start_position=0)
-                return
-
-        # 检查位置参数
-        for arg_name, arg in arguments.items():
-            if not arg_name.startswith('-') and arg['requires_value']:
-                choices = command_instance.get_arg_values(arg, subcmd, '')
-                if choices:
-                    yield from self._complete_items(choices, '')
-                    return
-
-        # 显示所有可用参数
-        yield from self._complete_items(arguments.values(), '')
-
-    def _complete_partial_input(self, words, arguments, command_instance, subcmd):
-        """处理部分输入的补齐"""
-        partial_arg = words[-1]
-        last_word = words[-2] if len(words) > 1 else None
-
-        # 检查当前输入是否是选项参数
-        if partial_arg.startswith('-'):
-            yield from self._complete_option_argument(partial_arg, arguments, command_instance, subcmd, 
-                                                     start_position=-len(partial_arg))
-            return
-
-        # 检查上一个词是否是选项参数
-        if last_word and last_word.startswith('-'):
-            arg = arguments.get(last_word, None)
-            if arg and arg['requires_value']:
-                choices = command_instance.get_arg_values(arg, subcmd, partial_arg)
-                if choices:
-                    yield from self._complete_items(choices, partial_arg)
-                return
-
-        # 检查是否是位置参数的输入
-        for arg_name, arg in arguments.items():
-            if not arg_name.startswith('-') and arg['requires_value']:
-                choices = command_instance.get_arg_values(arg, subcmd, partial_arg)
-                if choices:
-                    yield from self._complete_items(choices, partial_arg)
-                    return
+        if not words:
+            raise ValueError("No command specified")
         
-        # 显示所有可用参数
-        yield from self._complete_items(arguments.values(), partial_arg)
-
-    def _complete_option_argument(self, option_name, arguments, command_instance, subcmd, start_position):
-        """补齐选项参数"""
-        arg = arguments.get(option_name, None)
-        if not arg or not arg.get('requires_value'):
-            return
-
-        # 尝试通过 get_arg_values 获取选项
-        choices = command_instance.get_arg_values(arg, subcmd, '')
-        if choices:
-            yield from self._complete_items(choices, '')
-            return
-
-        # 尝试使用 arg 的 choices
-        if 'choices' in arg and arg['choices']:
-            choice_names = list(arg['choices'].keys())
-            for choice_name in choice_names:
-                yield Completion(choice_name, start_position=start_position, 
-                               display_meta=f"Option: {choice_name}")
-
-    def _complete_items(self, items, partial, start_pos=None):
-        """通用的补齐函数"""
-        start_pos = -len(partial) if start_pos is None else start_pos
-        for item in items:
-            if item.name.startswith(partial):
-                yield Completion(
-                    item.name,
-                    start_position=start_pos,
-                    display_meta=item.desc
-                )
-
-    def execute(self, user_input: str) -> dict[str, Any]:
-        """Execute a command"""
-        if not user_input.startswith('/'):
-            raise CommandInputError(user_input)
+        cmd_name = words[0]
+        cmd_args = words[1:]
         
-        user_input = user_input[1:].strip()
-        if not user_input:
-            raise CommandInputError(user_input)
+        # 查找命令
+        command = self.registry.get(cmd_name)
+        if not command:
+            raise CommandError(f"Unknown command: {cmd_name}")
         
-        args = shlex.split(user_input)
-        command = args[0]
-        if command not in self.commands:
-            raise InvalidCommandError(command)
+        # 检查命令是否支持当前模式
+        if context.mode not in command.modes:
+            raise CommandError(f"Command '{cmd_name}' not available in {context.mode.value} mode")
         
-        command_instance = self.commands[command]
-        parser = command_instance.parser
-        ret = None
+        # 解析参数
         try:
-            # Parse remaining arguments (excluding the command name)
-            parsed_args = parser.parse_args(args[1:])
-            parsed_args.raw_args = args[1:]
-            ret = command_instance.execute(parsed_args)
-        except SystemExit as e:
-            raise CommandError(f"SystemExit: {e}")
+            parsed_args = command.parser.parse_args(cmd_args)
+        except SystemExit:
+            # argparse 尝试退出，转换为异常
+            raise CommandError(f"Invalid arguments for command '{cmd_name}'")
         except argparse.ArgumentError as e:
-            raise CommandArgumentError(f"ArgumentError: {e}") from e
+            raise CommandError(f"Invalid arguments: {e}")
         except Exception as e:
-            raise CommandError(f"Error: {e}") from e
+            raise CommandError(f"Failed to parse arguments: {e}")
         
-        return CommandResult(command=command, subcommand=getattr(parsed_args, 'subcommand', None), args=vars(parsed_args), result=ret)
+        # 验证参数
+        if hasattr(command, 'validate_args'):
+            error = command.validate_args(parsed_args)
+            if error:
+                raise CommandError(f"Invalid arguments: {error}")
+        
+        # 执行命令
+        try:
+            result = command.execute(parsed_args, context)
+            return CommandResult(command=command.name, subcommand=getattr(parsed_args, 'subcommand', None), args=vars(parsed_args), result=result)
+        except Exception as e:
+            self.log.error(f"Command execution failed: {e}")
+            raise CommandError(f"Command execution failed: {e}")
+
+
+class CommandCompleter(CompleterBase):
+    """
+    命令级别的补齐器
     
-    def reload_custom_commands(self):
-        """Reload all custom commands"""
-        # Remove existing custom commands
-        custom_command_names = []
-        for name, command in list(self.commands_main.items()):
-            if hasattr(command, 'file_path'):  # It's a custom command
-                custom_command_names.append(name)
-                del self.commands_main[name]
+    负责路由补齐请求到具体命令的补齐器
+    """
+    
+    def __init__(self, registry: CommandRegistry, context_provider: CommandContext):
+        self.registry = registry
+        self.context_provider = context_provider  # 用于获取当前执行上下文
+    
+    def get_completions(self, context: CompleterContext) -> List[Completion]:
+        """获取补齐建议"""
+        text = context.word_before_cursor
         
-        for name, command in list(self.commands_task.items()):
-            if hasattr(command, 'file_path'):  # It's a custom command
-                custom_command_names.append(name)
-                del self.commands_task[name]
+        # 解析命令名
+        try:
+            words = shlex.split(text)
+        except ValueError:
+            # 引号不匹配等情况，尝试简单分割
+            words = text.split()
         
-        # Reload custom commands
-        custom_commands = self.custom_command_manager.reload_commands()
+        if not words:
+            # 补齐所有命令名
+            return self._complete_command_names("", context)
+        
+        cmd_name = words[0]
+        
+        # 如果还在输入命令名
+        if len(words) == 1 and not context.is_empty_position:
+            return self._complete_command_names(cmd_name, context)
+        
+        # 查找命令
+        command = self.registry.get(cmd_name)
+        if not command:
+            return []
+        
+        # 获取命令的补齐器
+        completer = command.completer
+        
+        # 创建命令参数的上下文（去掉命令名）
+        remaining_text = text[len(cmd_name):].lstrip()
+        arg_context = CompleterContext(
+            text=remaining_text,
+            cursor_pos=len(remaining_text),
+            words=words[1:],
+            current_word=words[-1] if len(words) > 1 and not context.is_empty_position else "",
+            word_before_cursor=remaining_text
+        )
+        
+        return completer.get_completions(arg_context)
+    
+    def _complete_command_names(self, partial: str, context: CompleterContext) -> List[Completion]:
+        """补齐命令名"""
+        completions = []
+        
+        # 获取当前模式
+        current_mode = self.context_provider.mode
+        
+        # 获取当前模式的命令
+        commands = self.registry.get_commands_by_mode(current_mode)
+        for command in commands:
+            if command.name.startswith(partial):
+                completions.append(Completion(
+                    command.name,
+                    start_position=-len(partial) if partial else 0,
+                    display=command.name,
+                    display_meta=command.description
+                ))
+        
+        return completions
+
+
+class CommandManager(Completer):
+    """
+    重构后的命令管理器
+    
+    职责：
+    1. 作为顶层接口，协调各组件
+    2. 管理命令注册表
+    3. 提供执行入口
+    4. 作为 prompt_toolkit 的 Completer
+    
+    不负责：
+    - 具体的补齐逻辑（委托给 CommandCompleter）
+    - 具体的执行逻辑（委托给 CommandExecutor）
+    - 命令的实现（由 Command 子类负责）
+    """
+
+    def __init__(self, config: CommandManagerConfig, context: CommandContext):
+        """
+        初始化命令管理器
+        
+        Args:
+            config: 静态配置
+            runtime_context: 运行时上下文
+        """
+        self.config = config
+        self.context = context   
+        self.registry = CommandRegistry()
+        self.executor = CommandExecutor(self.registry)
+        self.completer = CommandCompleter(self.registry, self.context)  # 传递 context 以获取当前模式
+        self.log = logger.bind(src="CommandManager")
+
+        # 自定义命令管理器
+        self.custom_command_manager = self._create_custom_command_manager()
+        
+        # 初始化命令
+        self._init_commands()
+
+        # 创建键绑定
+        self.key_bindings = create_key_bindings(self)
+    
+    @property
+    def commands(self) -> OrderedDict[str, Command]:
+        """获取所有命令"""
+        return self.registry.commands
+    
+    def _create_custom_command_manager(self) -> CustomCommandManager:
+        """创建自定义命令管理器"""
+        manager = CustomCommandManager()
+        
+        # 内置命令目录
+        if self.config.builtin_command_dir:
+            self.log.info(f"Adding builtin command directory: {self.config.builtin_command_dir}")
+            manager.add_command_dir(self.config.builtin_command_dir)
+        
+        # 添加自定义命令目录
+        for cmd_dir in self.config.custom_command_dirs:
+            if cmd_dir.exists():
+                self.log.info(f"Adding custom command directory: {cmd_dir}")
+                manager.add_command_dir(cmd_dir)
+        
+        return manager
+        
+    def register_command(self, command: Command):
+        """注册命令"""
+        self.registry.register(command)
+        self.log.info(f"Registered command: {command.name}")
+    
+    def unregister_command(self, name: str):
+        """注销命令"""
+        self.registry.unregister(name)
+        self.log.info(f"Unregistered command: {name}")
+
+    def _init_commands(self):
+        """初始化所有命令"""
+        commands = []
+        # 初始化内置命令
+        for command_class in BUILTIN_COMMANDS:
+            command = command_class()
+            self.register_command(command)
+            commands.append(command)
+        
+        # 初始化自定义命令
+        custom_commands = self.custom_command_manager.scan_commands()
         for custom_command in custom_commands:
+            # 验证命令名不冲突
+            all_names = list(self.registry.commands.keys())
             if self.custom_command_manager.validate_command_name(
-                custom_command.name,
-                list(self.commands_main.keys()) + list(self.commands_task.keys())
+                custom_command.name, 
+                all_names
             ):
-                custom_command.manager = self
+                custom_command.manager = self  # 设置管理器引用
                 self.register_command(custom_command)
-                custom_command.init()
+                commands.append(custom_command)
         
-        self.log.info(f"Reloaded {len(custom_commands)} custom commands")
-        return len(custom_commands)
+        # 初始化所有命令
+        for command in commands:
+            if hasattr(command, 'init'):
+                command.init(self)
+        
+        self.log.info(
+            f"Initialized {len(BUILTIN_COMMANDS)} built-in commands "
+            f"and {len(custom_commands)} custom commands"
+        )
+
+    def execute(self, text: str) -> Any:
+        """
+        执行命令
+        
+        Args:
+            text: 命令文本（带 / 前缀）
+            
+        Returns:
+            命令执行结果
+        """
+        return self.executor.execute(text, self.context)
+    
+    def get_completions(self, document, complete_event):
+        """
+        prompt_toolkit Completer 接口
+        
+        将补齐请求路由到命令补齐器
+        """
+        text = document.text_before_cursor
+        
+        # 只处理以 / 开头的命令
+        if not text.startswith('/'):
+            return
+        
+        # 去掉 / 前缀
+        text = text[1:]
+        
+        # 创建补齐上下文
+        try:
+            words = shlex.split(text)
+        except ValueError:
+            words = text.split()
+        
+        current_word = ""
+        if words and not text.endswith(' '):
+            current_word = words[-1]
+        
+        context = CompleterContext(
+            text=text,
+            cursor_pos=len(text),
+            words=words,
+            current_word=current_word,
+            word_before_cursor=text
+        )
+        
+        # 获取补齐建议
+        completions = self.completer.get_completions(context)
+        
+        # 转换为 prompt_toolkit 的 Completion
+        for completion in completions:
+            yield completion
+    

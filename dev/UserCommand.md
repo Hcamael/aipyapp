@@ -15,11 +15,11 @@
 
 ### 1. 创建命令目录
 
-默认命令目录为 `custom_commands/`，可通过配置添加其他目录。
+默认命令目录为 `~/.aipyapp/commands/`。
 
 ### 2. 创建简单命令
 
-创建文件 `custom_commands/hello.md`：
+创建文件 `hello.md`：
 
 ```markdown
 Hello, World!
@@ -34,7 +34,7 @@ Hello, World!
 
 ### 3. 创建带配置的命令
 
-创建文件 `custom_commands/greet.md`：
+创建文件 `greet.md`：
 
 ```yaml
 ---

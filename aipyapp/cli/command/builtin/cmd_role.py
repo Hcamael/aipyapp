@@ -1,12 +1,13 @@
 import json
 
+from rich.panel import Panel
+from rich.table import Table
 from rich.tree import Tree
 from rich.syntax import Syntax
 
-from ... import T
-from .base import Completable
-from .base_parser import ParserCommand
-from .utils import print_records
+from aipyapp import T
+from ..base import ParserCommand
+from .utils import record2table
 
 class RoleCommand(ParserCommand):
     name = 'role'
@@ -24,15 +25,16 @@ class RoleCommand(ParserCommand):
         use_parser = subparsers.add_parser('use', help=T('Use a role'))
         use_parser.add_argument('role', type=str, help=T('Role name'))
 
-    def get_arg_values(self, arg, subcommand=None, partial_value=''):
-        if subcommand in ['show', 'use'] and arg.name == 'role':
+    def get_arg_values(self, name, subcommand=None):
+        if name == 'role':
             ctx = self.manager.context
-            return [Completable(name, role.short) for name, role in ctx.tm.role_manager.roles.items()]
-        return super().get_arg_values(arg, subcommand)
+            return [(name, role.short) for name, role in ctx.tm.role_manager.roles.items()]
+        return None
             
     def cmd_list(self, args, ctx):
         rows = ctx.tm.list_roles()
-        print_records(rows)
+        table = record2table(rows)
+        ctx.console.print(table)
         
     def cmd_show(self, args, ctx):
         role_name = args.role.lower()
@@ -40,9 +42,6 @@ class RoleCommand(ParserCommand):
         if not role:
             self.log.error(T('Role not found').format(args.role))
             return
-        
-        from rich.table import Table
-        from rich import print
         
         # 基本信息表格
         basic_table = Table(title=f"{T('Role Information')}: {role.name}", show_lines=True)
@@ -56,13 +55,12 @@ class RoleCommand(ParserCommand):
         basic_table.add_row(T('Package dependencies count'), str(len(role.packages)))
         basic_table.add_row(T('Plugins count'), str(len(role.plugins)))
         
-        print(basic_table)
+        ctx.console.print(basic_table)
         
         # 详细描述
         if role.detail:
-            from rich.panel import Panel
             detail_panel = Panel(role.detail, title=T('Role detail'), border_style="blue")
-            print(detail_panel)
+            ctx.console.print(detail_panel)
         
         # 提示信息表格
         if role.tips:
@@ -73,7 +71,7 @@ class RoleCommand(ParserCommand):
             for tip_name, tip in role.tips.items():
                 tips_table.add_row(tip_name, tip.short)
             
-            print(tips_table)
+            ctx.console.print(tips_table)
         
         # 环境变量表格
         if role.envs:
@@ -87,7 +85,7 @@ class RoleCommand(ParserCommand):
                 display_value = value[:50] + "..." if len(value) > 50 else value
                 env_table.add_row(env_name, desc, display_value)
             
-            print(env_table)
+            ctx.console.print(env_table)
         
         # 包依赖表格
         if role.packages:
@@ -98,7 +96,7 @@ class RoleCommand(ParserCommand):
             for lang, packages in role.packages.items():
                 pkg_table.add_row(lang, ', '.join(packages))
             
-            print(pkg_table)
+            ctx.console.print(pkg_table)
 
         # 插件表格
         if role.plugins:
@@ -107,7 +105,7 @@ class RoleCommand(ParserCommand):
                 t = tree.add(plugin_name)
                 t.add(Syntax(json.dumps(plugin_config, ensure_ascii=False, indent=2), "json", word_wrap=True))
 
-            print(tree)
+            ctx.console.print(tree)
         
     def cmd_use(self, args, ctx):
         success = ctx.tm.use(role=args.role)

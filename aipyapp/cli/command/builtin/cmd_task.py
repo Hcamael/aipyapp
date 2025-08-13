@@ -1,17 +1,14 @@
 import time
-from pathlib import Path
-import json
 import os
 
 from rich.panel import Panel
 
-from ... import T, EventBus
-from ...aipy.event_serializer import EventSerializer
-from ...aipy.task_state import TaskState
-from .base import Completable
-from .base_parser import ParserCommand
-from .result import TaskModeResult
-from .utils import print_records
+from aipyapp import T, EventBus
+from aipyapp.aipy.event_serializer import EventSerializer
+from aipyapp.aipy.task_state import TaskState
+from ..base import ParserCommand
+from ..common import TaskModeResult
+from .utils import record2table
 
 
 class TaskCommand(ParserCommand):
@@ -30,15 +27,16 @@ class TaskCommand(ParserCommand):
 
     def cmd_list(self, args, ctx):
         rows = ctx.tm.list_tasks()
-        print_records(rows)
+        table = record2table(rows)
+        ctx.console.print(table)
 
-    def get_arg_values(self, arg, subcommand=None, partial_value=''):
-        if subcommand == 'use' and arg.name == 'tid':
+    def get_arg_values(self, name, subcommand=None):
+        if name == 'tid':
             tasks = self.manager.tm.get_tasks()
-            return [Completable(task.task_id, task.instruction[:32]) for task in tasks]
-        elif subcommand in ('resume', 'replay') and arg.name == 'path':
-            return self._get_path_completions(partial_value)
-        return super().get_arg_values(arg, subcommand)
+            return [(task.task_id, task.instruction[:32]) for task in tasks]
+        elif name == 'path':
+            return self._get_path_completions()
+        return None
 
     def _get_path_completions(self, partial_path=''):
         """获取文件路径补齐选项 - 简化版本
@@ -79,11 +77,11 @@ class TaskCommand(ParserCommand):
             if os.path.isdir(match):
                 # 目录不再自动添加 / 后缀
                 # 这样用户输入 / 时会触发新的补齐
-                directories.append(Completable(match, "📁 Directory"))
+                directories.append((match, "📁 Directory"))
             elif match.endswith('.json'):
-                json_files.append(Completable(match, "📄 JSON"))
+                json_files.append((match, "📄 JSON"))
             else:
-                other_files.append(Completable(match, "📄 File"))
+                other_files.append((match, "📄 File"))
         
         # 按优先级排序：JSON 文件 > 目录 > 其他文件
         return json_files + directories + other_files

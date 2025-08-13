@@ -1,12 +1,12 @@
-from rich import print
 from rich.table import Table
 import random
 
-from ... import T
+from aipyapp import T
+
 
 COLORS = ["red", "green", "blue", "yellow", "magenta", "cyan", "white", "bright_red", "bright_green", "bright_blue", "bright_yellow", "bright_magenta", "bright_cyan"]
 
-def print_table(rows, title=None, headers=None):
+def row2table(rows, title=None, headers=None):
     if not rows:
         return
     table = Table(title=title, show_lines=True)
@@ -16,10 +16,10 @@ def print_table(rows, title=None, headers=None):
         table.add_column(T(header), justify="center", style=f"bold {color}", no_wrap=True)
     for row in rows:
         table.add_row(*[str(cell) for cell in row])
-    print(table)
+    return table
 
-def print_records(records, title=None):
+def record2table(records, title=None):
     if not records:
         return
-    headers = type(records[0])._fields
-    print_table(records, title=title, headers=headers)
+    headers = type(records[0])._fields if hasattr(records[0], '_fields') else records[0].keys()
+    return row2table(records, title=title, headers=headers)

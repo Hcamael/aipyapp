@@ -1,4 +1,26 @@
-from .manager import CommandManager, CommandError
-from .result import TaskModeResult, CommandResult
+"""
+命令模块
+"""
 
-__all__ = ['CommandManager', 'TaskModeResult', 'CommandError', 'CommandResult']
+from .common import (
+    CommandManagerConfig, 
+    CommandContext, 
+    CommandMode, 
+    CommandResult, 
+    TaskModeResult,
+    CommandError,
+)
+
+from .manager import CommandManager
+
+__all__ = [
+    'CommandManager',
+    'TaskModeResult',
+    'CommandResult',
+    'CommandError',
+    'CommandContext',
+    'CommandManagerConfig',
+    'CommandMode',    
+    'CommandResult',
+    'TaskModeResult',
+]

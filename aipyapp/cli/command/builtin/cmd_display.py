@@ -1,9 +1,7 @@
-from rich import print
-from rich.table import Table
 
-from ... import T
-from .base_parser import ParserCommand
-from .utils import print_table
+from aipyapp import T
+from ..base import ParserCommand
+from .utils import row2table
 
 class DisplayCommand(ParserCommand):
     name = 'display'
@@ -27,16 +25,18 @@ class DisplayCommand(ParserCommand):
             description = info.get(style, '')
             rows.append([style, description])
             
-        print_table(rows, headers=[T('Style'), T('Description')], title=T('Available Display Styles'))
+        table = row2table(rows, headers=[T('Style'), T('Description')], title=T('Available Display Styles'))
+        ctx.console.print(table)
 
     def cmd_use(self, args, ctx):
         """设置显示风格"""
+        console = ctx.console
         success = ctx.tm.display_manager.set_style(args.style)
         if success:
-            print(f"[green]{T('Display style changed to')}: {T(args.style)}[/green]")
+            console.print(f"[green]{T('Display style changed to')}: {T(args.style)}[/green]")
         else:
-            print(f"[red]{T('Invalid display style')}: {T(args.style)}[/red]")
-            print(f"[yellow]{T('Use /display list to see available styles')}[/yellow]") 
+            console.print(f"[red]{T('Invalid display style')}: {T(args.style)}[/red]")
+            console.print(f"[yellow]{T('Use /display list to see available styles')}[/yellow]") 
 
     def cmd(self, args, ctx):
         self.cmd_list(args, ctx)

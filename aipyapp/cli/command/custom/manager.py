@@ -1,30 +1,13 @@
-import os
+
 import re
 import yaml
 from pathlib import Path
 from typing import Dict, List, Optional, Any, Tuple
-from dataclasses import dataclass, field
+
 from loguru import logger
 
-try:
-    import jinja2
-except ImportError:
-    raise ImportError("Jinja2 is required for custom commands. Install with: pip install jinja2")
-
-from .base import CommandMode
-
-
-@dataclass
-class CustomCommandConfig:
-    """Configuration for a custom command"""
-    name: str
-    description: str = ""
-    modes: List[CommandMode] = field(default_factory=lambda: [CommandMode.TASK])
-    arguments: List[Dict[str, Any]] = field(default_factory=list)
-    subcommands: Dict[str, Dict[str, Any]] = field(default_factory=dict)
-    template_vars: Dict[str, Any] = field(default_factory=dict)
-    task: bool|None = None  # 是否在MAIN模式下创建新任务
-
+from ..base import CommandMode
+from .markdown import CustomCommandConfig, MarkdownCommand
 
 class CustomCommandManager:
     """Manager for custom markdown-based commands"""
@@ -82,10 +65,7 @@ class CustomCommandManager:
                 config = self._create_default_config(md_file.stem, content)
                 body = content  # Use entire content as body
             
-            # Import here to avoid circular imports
-            from .markdown_command import MarkdownCommand
             return MarkdownCommand(config, body, md_file)
-            
         except Exception as e:
             self.log.error(f"Error loading command from {md_file}: {e}")
             return None

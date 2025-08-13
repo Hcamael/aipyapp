@@ -91,7 +91,7 @@ class CodeBlocks(Trackable):
         self.history = []
         self.blocks = OrderedDict()
         self.code_pattern = re.compile(
-            r'<!--\s*Block-Start:\s*(\{.*?\})\s*-->\s*```(\w+)?\s*\n(.*?)\n```\s*<!--\s*Block-End:\s*(\{.*?\})\s*-->',
+            r'<!--\s*Block-Start:\s*(\{.*?\})\s*-->\s*(?P<ticks>`{3,})(\w+)?\s*\n(.*?)\n(?P=ticks)\s*<!--\s*Block-End:\s*(\{.*?\})\s*-->',
             re.DOTALL
         )
         self.line_pattern = re.compile(
@@ -106,7 +106,7 @@ class CodeBlocks(Trackable):
         blocks = OrderedDict()
         errors = []
         for match in self.code_pattern.finditer(markdown_text):
-            start_json, lang, content, end_json = match.groups()
+            start_json, _, lang, content, end_json = match.groups()
             try:
                 start_meta = json.loads(start_json)
                 end_meta = json.loads(end_json)

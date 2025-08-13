@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+from pathlib import Path
 from importlib.resources import read_text
 
 from rich.console import Console
@@ -11,8 +12,8 @@ from prompt_toolkit.cursor_shapes import CursorShape
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 
 from ..aipy import TaskManager
-from .. import T, __version__, __respkg__
-from .command import CommandManager, TaskModeResult, CommandError, CommandResult
+from .. import T, __version__, __respath__
+from .command import CommandManager, TaskModeResult, CommandError, CommandResult, CommandManagerConfig, CommandContext
 from ..display import DisplayManager
 
 STYLE_MAIN = {
@@ -24,7 +25,7 @@ STYLE_MAIN = {
     'bottom-toolbar': 'bg:#FFFFFF green'
 }
 
-STYLE_AI = {
+STYLE_TASK = {
     'completion-menu.completion': 'bg:#008080 #ffffff',         # 深蓝背景，白色文本
     'completion-menu.completion.current': 'bg:#005577 #ffffff', # 当前选中，亮蓝
     'completion-menu.meta': 'bg:#002244 #cccccc',               # 补全项的 meta 信息
@@ -34,25 +35,69 @@ STYLE_AI = {
 }
 
 class InteractiveConsole():
-    def __init__(self, tm, console, settings):
-        self.tm = tm
-        self.names = tm.client_manager.names
-        self.history = FileHistory(str(settings['config_dir'] / ".history"))
-        self.console = console
+    def __init__(self, task_manager, console, settings):
+        """
+        初始化控制台
+        
+        Args:
+            settings: 应用设置
+            task_manager: TaskManager 实例
+            console: Rich Console 实例
+        """
         self.settings = settings
+        self.tm = task_manager
+        self.console = console
         self.task = None
+
+        # 创建历史记录
+        self.history = FileHistory(str(settings['config_dir'] / ".history"))
+        
+        # 创建命令管理器配置
+        command_config = self._create_command_config()
+        
+        # 创建运行时上下文
+        self.command_context = self._create_command_context()
+        
+        # 创建命令管理器
+        self.command_manager = CommandManager(command_config, self.command_context)
+        
+        # 创建提示会话
+        self.session = self._create_prompt_session()
+        
+        # 样式
         self.style_main = Style.from_dict(STYLE_MAIN)
-        self.style_task = Style.from_dict(STYLE_AI)
-        self.command_manager = CommandManager(settings,tm, console)
-        self.completer = self.command_manager
-        self.session = PromptSession(
-            history=self.history, 
-            completer=self.completer, 
-            auto_suggest=AutoSuggestFromHistory(), 
-            bottom_toolbar=self.get_bottom_toolbar,
-            key_bindings=self.command_manager.create_key_bindings()
+        self.style_task = Style.from_dict(STYLE_TASK)
+
+    def _create_command_config(self) -> CommandManagerConfig:
+        """创建命令管理器配置"""
+        return CommandManagerConfig(
+            settings=self.settings,
+            builtin_command_dir=Path(__respath__ / "commands"),
+            custom_command_dirs=[
+                Path(self.settings['config_dir']) / "commands",
+                # 可以添加更多自定义命令目录
+            ]
         )
     
+    def _create_command_context(self) -> CommandContext:
+        """创建运行时上下文"""
+        return CommandContext(
+            tm=self.tm,
+            task=None,
+            console=self.console,
+            settings=self.settings
+        )
+
+    def _create_prompt_session(self) -> PromptSession:
+        """创建提示会话"""
+        return PromptSession(
+            history=self.history,
+            completer=self.command_manager,  # CommandManager 实现了 Completer 接口
+            auto_suggest=AutoSuggestFromHistory(),
+            bottom_toolbar=self.get_bottom_toolbar,
+            key_bindings=self.command_manager.key_bindings
+        )
+           
     def get_main_status(self):
         status = self.tm.get_status()
         try:
@@ -68,7 +113,7 @@ class InteractiveConsole():
         return ""
     
     def get_bottom_toolbar(self):
-        if self.command_manager.is_task_mode():
+        if self.command_context.is_task_mode():
             status = self.get_task_status()
             text = f"[AI] {status}"
         else:
@@ -76,22 +121,33 @@ class InteractiveConsole():
             text = f"[Main] {status}"
         return [('class:bottom-toolbar', text)]
     
-    def input_with_possible_multiline(self, prompt_text, task_mode=False):
-        session = self.session
+    def _input_with_multiline(self, prompt_text, task_mode=False):
+        """获取用户输入（支持多行）"""
         style = self.style_task if task_mode else self.style_main
-        cursor_shape = CursorShape.BEAM if not task_mode else CursorShape.BLOCK
-        first_line = session.prompt([("class:prompt", prompt_text)], style=style, cursor=cursor_shape)
+        cursor_shape = CursorShape.BLOCK if task_mode else CursorShape.BEAM
+        
+        first_line = self.session.prompt(
+            [("class:prompt", prompt_text)],
+            style=style,
+            cursor=cursor_shape
+        )
+        
         if not first_line.endswith("\\"):
             return first_line
-        # Multi-line input
+        
+        # 多行输入
         lines = [first_line.rstrip("\\")]
         while True:
-            next_line = session.prompt([("class:prompt", "... ")], style=style)
+            next_line = self.session.prompt(
+                [("class:prompt", "... ")],
+                style=style
+            )
             if next_line.endswith("\\"):
                 lines.append(next_line.rstrip("\\"))
             else:
                 lines.append(next_line)
                 break
+        
         return "\n".join(lines)
 
     def run_task(self, task, instruction, title=None):
@@ -103,6 +159,7 @@ class InteractiveConsole():
             self.console.print_exception()
 
     def start_task_mode(self, task, instruction=None, title=None):
+        self.command_context.set_task_mode(task)
         if instruction:
             self.console.print(f"[AI] {T('Enter Ctrl+d or /done to end current task')}", style="dim color(240)")
             self.run_task(task, instruction, title=title)
@@ -110,10 +167,8 @@ class InteractiveConsole():
             self.console.print(f"[AI] {T('Resuming task')}: {task.instruction[:32]}", style="dim color(240)")
             
         while True:
-            self.task = task
-            self.command_manager.set_task_mode(task)
             try:
-                user_input = self.input_with_possible_multiline(">>> ", task_mode=True).strip()
+                user_input = self._input_with_multiline(">>> ", task_mode=True).strip()
                 if len(user_input) < 2: continue
             except (EOFError, KeyboardInterrupt):
                 break
@@ -141,9 +196,9 @@ class InteractiveConsole():
         self.console.print(f"[Main] {T('Please enter an instruction or `/help` for more information')}", style="dim color(240)")
         tm = self.tm
         while True:
-            self.command_manager.set_main_mode()
+            self.command_context.set_main_mode()
             try:
-                user_input = self.input_with_possible_multiline(">> ").strip()
+                user_input = self._input_with_multiline(">> ").strip()
                 if len(user_input) < 2:
                     continue
 
@@ -174,7 +229,7 @@ def get_logo_text(config_dir):
     if path.exists():
         logo_text = path.read_text()
     else:
-        logo_text = read_text(__respkg__, "logo.txt")
+        logo_text = Path(__respath__ / "logo.txt").read_text()
     return logo_text
 
 def main(settings):

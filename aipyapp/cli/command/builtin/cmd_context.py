@@ -1,14 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from rich.console import Console
 from rich.table import Table
-from rich.panel import Panel
-from rich.text import Text
 
-from .base import CommandMode
-from .base_parser import ParserCommand
-from ... import T
+from ..base import CommandMode, ParserCommand
+from aipyapp import T
 
 class ContextCommand(ParserCommand):
     """上下文管理命令"""

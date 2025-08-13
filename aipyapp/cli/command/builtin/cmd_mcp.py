@@ -1,9 +1,9 @@
 from rich import print
 import argparse
 
-from ... import T
-from .base_parser import ParserCommand
-from .utils import print_records, print_table
+from aipyapp import T
+from ..base import ParserCommand
+from .utils import record2table, row2table
 
 class MCPCommand(ParserCommand):
     name = 'mcp'
@@ -48,7 +48,8 @@ class MCPCommand(ParserCommand):
             (T('Total Tools'), ret['total_tools']),
             (T('Enabled Tools'), ret['enabled_tools'])
         ]
-        print_table(rows, title=T('MCP status'), headers=["Name", "Value"])
+        table = row2table(rows, title=T('MCP status'), headers=["Name", "Value"])
+        ctx.console.print(table)
         return ret
     
     def cmd_enable(self, args, ctx):
@@ -67,7 +68,8 @@ class MCPCommand(ParserCommand):
             ret = mcp.enable_user_server(args.disable, False)
         else:
             servers = mcp.list_user_servers()
-            print_records(servers, title=T('MCP servers'))
+            table = record2table(servers, title=T('MCP servers'))
+            ctx.console.print(table)
             ret = True
         ctx.console.print(T('Success') if ret else T('Failed'), style="bold green" if ret else "bold red")
         return ret

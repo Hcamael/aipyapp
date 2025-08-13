@@ -1,7 +1,6 @@
-from ... import T
-from .base import CommandMode, Completable
-from .base_parser import ParserCommand
-from .utils import print_records
+from aipyapp import T
+from ..base import CommandMode, ParserCommand
+from .utils import record2table
 
 class LLMCommand(ParserCommand):
     name = 'llm'
@@ -13,15 +12,16 @@ class LLMCommand(ParserCommand):
         use_parser.add_argument('provider', type=str, help=T('Provider name'))
         subparsers.add_parser('list', help=T('List LLM providers'))
 
-    def get_arg_values(self, arg, subcommand=None, partial_value=''):
-        if subcommand == 'use' and arg.name == 'provider':
+    def get_arg_values(self, name, subcommand=None):
+        if name == 'provider':
             ctx = self.manager.context
-            return [Completable(client.name, str(client)) for client in ctx.tm.client_manager.clients.values()]
-        return super().get_arg_values(arg, subcommand)
+            return [(client.name, str(client)) for client in ctx.tm.client_manager.clients.values()]
+        return None
             
     def cmd_list(self, args, ctx):
         rows = ctx.tm.list_llms()
-        print_records(rows)
+        table = record2table(rows)
+        ctx.console.print(table)
         
     def cmd_use(self, args, ctx):
         if ctx.task:
