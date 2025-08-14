@@ -27,9 +27,17 @@ class PluginCommand(ParserCommand):
     def cmd_list(self, args, ctx):
         """列出可用的插件"""
         rows = []
+        if ctx.task:
+            plugins = ctx.task.plugins
+            title = T('Enabled Plugins')
+        else:
+            plugins = None
+            title = T('Available Plugins')
         for plugin in ctx.tm.plugin_manager:
+            if plugins and plugin.name not in plugins:
+                continue
             rows.append([plugin.name, plugin.description, plugin.get_type().name, plugin.version, plugin.author])
-        table = row2table(rows, headers=[T('Name'), T('Description'), T('Type'), T('Version'), T('Author')], title=T('Available Plugins'))
+        table = row2table(rows, headers=[T('Name'), T('Description'), T('Type'), T('Version'), T('Author')], title=title)
         ctx.console.print(table)
 
     def _get_first_line(self, doc: str) -> str:
@@ -44,7 +52,7 @@ class PluginCommand(ParserCommand):
             return
         plugin = task.plugins.get(args.name)
         if not plugin:
-            ctx.console.print(f"[red]{T('Plugin not found')}: {args.name}[/red]")
+            ctx.console.print(f"[red]{T('Plugin not enabled')}: {args.name}[/red]")
             return
         
         rows = []

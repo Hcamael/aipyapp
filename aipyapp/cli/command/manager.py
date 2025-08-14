@@ -4,13 +4,14 @@ import shlex
 import argparse
 from collections import OrderedDict
 from typing import Dict, Optional, Any, List
+
 from prompt_toolkit.completion import Completer, Completion
 from loguru import logger
 
 from .common import CommandContext, CommandMode, CommandManagerConfig, CommandError, CommandResult
 from .base import Command
-from .completer import CompleterBase, CompleterContext
-from .custom.manager import CustomCommandManager
+from .completer import CompleterBase, CompleterContext, FuzzyCompleter
+from .custom import CustomCommandManager
 from .builtin import BUILTIN_COMMANDS
 from .keybindings import create_key_bindings
 
@@ -23,62 +24,64 @@ class CommandRegistry:
     
     def __init__(self):
         self._commands: OrderedDict[str, Command] = OrderedDict()
-        self.aliases: Dict[str, str] = {}  # 别名 -> 命令名
-        self.commands_by_mode: Dict[CommandMode, List[Command]] = {
-            CommandMode.MAIN: [],
-            CommandMode.TASK: []
+        self._commands_by_mode: Dict[CommandMode, OrderedDict[str, Command]] = {
+            CommandMode.MAIN: OrderedDict(),
+            CommandMode.TASK: OrderedDict()
         }
+        self._user_commands: OrderedDict[str, Command] = OrderedDict()
     
     @property
     def commands(self) -> OrderedDict[str, Command]:
         """获取所有命令"""
         return self._commands
     
+    @property
+    def user_commands(self) -> OrderedDict[str, Command]:
+        """获取所有用户命令"""
+        return self._user_commands
+    
     def register(self, command: Command):
         """注册命令"""
         # 注册主名称
-        self._commands[command.name] = command
+        name = command.name
+        self._commands[name] = command
         
-        # 注册别名
-        if hasattr(command, 'aliases'):
-            for alias in command.aliases:
-                self.aliases[alias] = command.name
+        if not command.builtin:
+            self._user_commands[name] = command
         
         # 按模式分类
         for mode in command.modes:
-            self.commands_by_mode[mode].append(command)
+            self._commands_by_mode[mode][name] = command
     
     def unregister(self, name: str):
         """注销命令"""
-        if name in self._commands:
-            command = self._commands[name]
-            del self._commands[name]
-            
-            # 移除别名
-            for alias, cmd_name in list(self.aliases.items()):
-                if cmd_name == name:
-                    del self.aliases[alias]
-            
-            # 从模式列表中移除
-            for mode in command.modes:
-                if command in self.commands_by_mode[mode]:
-                    self.commands_by_mode[mode].remove(command)
+        command = self._commands.pop(name, None)
+        if not command:
+            return False
+        
+        # 从模式列表中移除
+        for mode in command.modes:
+            self._commands_by_mode[mode].pop(name, None)
+        
+        if not command.builtin:
+            self._user_commands.pop(name, None)
+        return True
+    
+    def unregister_user_commands(self):
+        """注销用户命令"""
+        count = 0
+        for name in list(self._user_commands.keys()):
+            if self.unregister(name):
+                count += 1
+        return count
     
     def get(self, name: str) -> Optional[Command]:
         """获取命令"""
-        # 先检查直接名称
-        if name in self._commands:
-            return self._commands[name]
-        
-        # 再检查别名
-        if name in self.aliases:
-            return self._commands.get(self.aliases[name])
-        
-        return None
+        return self._commands.get(name)
     
-    def get_commands_by_mode(self, mode: CommandMode) -> List[Command]:
+    def get_commands_by_mode(self, mode: CommandMode) -> OrderedDict[str, Command]:
         """获取特定模式的命令"""
-        return self.commands_by_mode.get(mode, [])
+        return self._commands_by_mode.get(mode, {})
     
 class CommandExecutor:
     """
@@ -168,6 +171,7 @@ class CommandCompleter(CompleterBase):
     def __init__(self, registry: CommandRegistry, context_provider: CommandContext):
         self.registry = registry
         self.context_provider = context_provider  # 用于获取当前执行上下文
+        self.log = logger.bind(src="CommandCompleter")
     
     def get_completions(self, context: CompleterContext) -> List[Completion]:
         """获取补齐建议"""
@@ -211,7 +215,7 @@ class CommandCompleter(CompleterBase):
         return completer.get_completions(arg_context)
     
     def _complete_command_names(self, partial: str, context: CompleterContext) -> List[Completion]:
-        """补齐命令名"""
+        """补齐命令名，支持目录级别的分组"""
         completions = []
         
         # 获取当前模式
@@ -219,13 +223,71 @@ class CommandCompleter(CompleterBase):
         
         # 获取当前模式的命令
         commands = self.registry.get_commands_by_mode(current_mode)
-        for command in commands:
-            if command.name.startswith(partial):
+        for name, command in commands.items():
+            style = "fg:yellow" if not command.builtin else ""
+            completions.append(Completion(
+                name,
+                start_position=-len(partial) if partial else 0,
+                display=name,
+                display_meta=command.description if command else "",
+                style=style
+            ))
+        return completions
+
+        # 分析当前输入的路径层级
+        path_parts = partial.split('/') if partial else ['']
+        current_level = '/'.join(path_parts[:-1]) if len(path_parts) > 1 else ''
+        current_partial = path_parts[-1]
+        self.log.info(f"current_level: {current_level}, current_partial: {current_partial}, path_parts: {path_parts}")
+
+        # 收集当前层级的项目（命令和目录）
+        items_at_level = set()
+        
+        for name, command in commands.items():
+            # 检查命令是否匹配当前层级
+            if current_level:
+                # 在子目录中，只显示该目录下的命令
+                if not name.startswith(current_level + '/'):
+                    continue
+                # 移除前缀获取相对路径
+                relative_name = name[len(current_level + '/'):]
+            else:
+                # 在根级别
+                relative_name = name
+            
+            # 检查是否有更深层级的目录
+            if '/' in relative_name:
+                # 这是一个子目录，添加目录项
+                dir_name = relative_name.split('/')[0]
+                full_dir_path = f"{current_level}/{dir_name}" if current_level else dir_name
+                
+                if dir_name.startswith(current_partial):
+                    items_at_level.add(('dir', full_dir_path, dir_name))
+            else:
+                # 这是一个直接的命令
+                if relative_name.startswith(current_partial):
+                    items_at_level.add(('cmd', name, relative_name))
+        
+        self.log.info(f"items_at_level: {items_at_level}")
+
+        # 生成补全项
+        for item_type, full_name, display_name in sorted(items_at_level):
+            if item_type == 'dir':
                 completions.append(Completion(
-                    command.name,
+                    full_name,  # 目录补全时添加斜杠
                     start_position=-len(partial) if partial else 0,
-                    display=command.name,
-                    display_meta=command.description
+                    display=display_name + '/',
+                    display_meta="目录",
+                    style="fg:red"
+                ))
+            else:
+                # 找到对应的命令对象获取描述
+                command = self.registry.get(full_name)
+                completions.append(Completion(
+                    full_name,
+                    start_position=-len(partial) if partial else 0,
+                    display=display_name,
+                    display_meta=command.description if command else ""
                 ))
         
         return completions
@@ -259,7 +321,7 @@ class CommandManager(Completer):
         self.context = context   
         self.registry = CommandRegistry()
         self.executor = CommandExecutor(self.registry)
-        self.completer = CommandCompleter(self.registry, self.context)  # 传递 context 以获取当前模式
+        self.completer = FuzzyCompleter(CommandCompleter(self.registry, self.context))  # 传递 context 以获取当前模式
         self.log = logger.bind(src="CommandManager")
 
         # 自定义命令管理器
@@ -276,19 +338,18 @@ class CommandManager(Completer):
         """获取所有命令"""
         return self.registry.commands
     
+    @property
+    def user_commands(self) -> OrderedDict[str, Command]:
+        """获取所有用户命令"""
+        return self.registry.user_commands
+    
     def _create_custom_command_manager(self) -> CustomCommandManager:
         """创建自定义命令管理器"""
-        manager = CustomCommandManager()
-        
-        # 内置命令目录
-        if self.config.builtin_command_dir:
-            self.log.info(f"Adding builtin command directory: {self.config.builtin_command_dir}")
-            manager.add_command_dir(self.config.builtin_command_dir)
+        manager = CustomCommandManager(self.config.builtin_command_dir)
         
         # 添加自定义命令目录
         for cmd_dir in self.config.custom_command_dirs:
             if cmd_dir.exists():
-                self.log.info(f"Adding custom command directory: {cmd_dir}")
                 manager.add_command_dir(cmd_dir)
         
         return manager
@@ -303,16 +364,13 @@ class CommandManager(Completer):
         self.registry.unregister(name)
         self.log.info(f"Unregistered command: {name}")
 
-    def _init_commands(self):
-        """初始化所有命令"""
-        commands = []
-        # 初始化内置命令
-        for command_class in BUILTIN_COMMANDS:
-            command = command_class()
-            self.register_command(command)
-            commands.append(command)
+    def init_custom_commands(self, reload: bool = False):
+        """重新加载自定义命令"""
+        if reload:
+            count = self.registry.unregister_user_commands()
+            self.log.info(f"Unregistered {count} user commands")
         
-        # 初始化自定义命令
+        commands = []
         custom_commands = self.custom_command_manager.scan_commands()
         for custom_command in custom_commands:
             # 验证命令名不冲突
@@ -321,14 +379,23 @@ class CommandManager(Completer):
                 custom_command.name, 
                 all_names
             ):
-                custom_command.manager = self  # 设置管理器引用
+                custom_command.init(self)
                 self.register_command(custom_command)
                 commands.append(custom_command)
+
+        self.log.info(f"Initialized {len(commands)} user commands")
+        return commands
+
+    def _init_commands(self):
+        """初始化所有命令"""
+        # 初始化内置命令
+        for command_class in BUILTIN_COMMANDS:
+            command = command_class()
+            command.init(self)
+            self.register_command(command)
         
-        # 初始化所有命令
-        for command in commands:
-            if hasattr(command, 'init'):
-                command.init(self)
+        # 初始化自定义命令
+        custom_commands = self.init_custom_commands()
         
         self.log.info(
             f"Initialized {len(BUILTIN_COMMANDS)} built-in commands "
@@ -386,4 +453,3 @@ class CommandManager(Completer):
         # 转换为 prompt_toolkit 的 Completion
         for completion in completions:
             yield completion
-    

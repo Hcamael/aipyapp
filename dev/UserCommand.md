@@ -10,6 +10,7 @@
 - **YAML 配置**: 通过 frontmatter 配置参数、描述等
 - **模板渲染**: 使用 Jinja2 模板引擎处理动态内容
 - **代码块执行**: 支持 Python、Bash/Shell 代码块执行（MAIN 模式）
+- **命令包含** 通过 Jinja2 include 语句包含其它文件
 
 ## 快速开始
 
@@ -91,7 +92,7 @@ subcommands:                 # 子命令配置
 template_vars:               # 模板变量
   var1: value1
   var2: value2
-task: true                   # MAIN模式下是否自动创建任务（默认false）
+local: true                   # 本地执行还是发给LLM处理
 ---
 ```
 
@@ -105,9 +106,8 @@ task: true                   # MAIN模式下是否自动创建任务（默认fal
 
 ### 模式说明
 
-- **TASK 模式**: 先执行代码块收集结果，然后将包含执行结果的完整内容发送给 AI 处理
-- **MAIN 模式**: 在系统中执行代码块并直接显示结果
-- **MAIN→TASK 模式**: 通过 `task: true` 配置，在 MAIN 模式执行后自动创建新任务
+- **TASK 模式**: 命令只在Task模式下显示，默认发给LLM,除非 `local` 为 true。
+- **MAIN 模式**: 命令只在Main模式下显示，默认不发给LLM,除非 `local` 为 false。
 
 ## 代码块执行
 
@@ -119,14 +119,14 @@ task: true                   # MAIN模式下是否自动创建任务（默认fal
 - 适用于数据收集、状态检查等需要 AI 分析的场景
 
 ### 测试功能
-**所有自定义命令都支持 `--test` 参数用于预览输出：**
+**所有自定义命令都支持 `--local` 参数用于本地执行(不发送给LLM)：**
 
 ```bash
 # 测试模式：预览命令输出，不发送给LLM
-/syscheck_ai --test
+/syscheck_ai --local
 
 # 测试模式：带参数预览
-/code_analysis myfile.py --test
+/code_analysis myfile.py --local
 
 # 正常模式：实际执行
 /syscheck_ai
@@ -148,36 +148,35 @@ CPU使用率: 25.3%
 ### MAIN 模式代码执行  
 - 直接执行代码块并在终端显示结果
 - 适用于系统操作、工具执行等
-- **新功能**: 支持 `--to-task` 参数将输出转为新任务指令
 
 支持的代码块类型：
 
 ### Python 代码块
 
-```python
+````python
 # 获取系统信息
 import platform
 print(f"系统: {platform.system()}")
 print(f"版本: {platform.release()}")
-```
+````
 
 ### Shell/Bash 代码块
 
-```bash
+````bash
 # 显示当前目录内容
 ls -la
-```
+````
 
-```shell
+````shell
 # 显示系统信息
 uname -a
-```
+````
 
 ### Exec 代码块
 
-```exec
+````exec
 whoami
-```
+````
 
 ## 模板功能
 
@@ -215,11 +214,19 @@ template_vars:
 {% endfor %}
 ```
 
+### 文件引用
+```jinja2
+{% include "common.md" %}
+```
+搜索顺序为：
+- 命令当前目录
+- 用户命令主目录
+
 ## 实际示例
 
 ### 系统信息命令（MAIN模式）
 
-`custom_commands/sysinfo.md`：
+`sysinfo.md`：
 
 ```yaml
 ---
@@ -234,7 +241,7 @@ arguments:
 
 # 系统信息
 
-```python
+````python
 import platform
 import psutil
 from datetime import datetime
@@ -251,11 +258,11 @@ print(f"内存使用: {psutil.virtual_memory().percent}%")
 print(f"磁盘使用: {psutil.disk_usage('/').percent}%")
 print(f"启动时间: {datetime.fromtimestamp(psutil.boot_time())}")
 {% endif %}
-```
+````
 
 ### 系统分析命令（TASK模式）
 
-`custom_commands/syscheck.md`：
+`syscheck.md`：
 
 ```yaml
 ---
@@ -274,7 +281,7 @@ arguments:
 
 ## 当前系统状态
 
-```python
+````python
 import psutil
 import platform
 
@@ -282,13 +289,13 @@ print("=== 系统资源使用情况 ===")
 print(f"CPU使用率: {psutil.cpu_percent(interval=1)}%")
 print(f"内存使用率: {psutil.virtual_memory().percent}%")
 print(f"磁盘使用率: {psutil.disk_usage('/').percent}%")
-```
+````
 
 {% if detail %}
-```bash
+````bash
 # 检查网络连接
 netstat -tuln | head -5
-```
+````
 {% endif %}
 
 ## 分析请求
@@ -297,7 +304,7 @@ netstat -tuln | head -5
 
 ### 代码审查模板
 
-`custom_commands/review.md`：
+`review.md`：
 
 ```yaml
 ---
@@ -414,14 +421,14 @@ custom_commands/
 
 在 Python 代码块中添加适当的错误处理：
 
-```python
+````python
 try:
     # 你的代码
     result = some_operation()
     print(result)
 except Exception as e:
     print(f"错误: {e}")
-```
+````
 
 ## 常见问题
 

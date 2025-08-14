@@ -6,7 +6,9 @@ from .specialized import (
     PathCompleter,
     ChoiceCompleter,
     CompositeCompleter,
-    DynamicCompleter
+    DynamicCompleter,
+    FuzzyCompleter,
+    ChainedCompleter
 )
 
 __all__ = [
@@ -19,4 +21,6 @@ __all__ = [
     'CompositeCompleter',
     'DynamicCompleter',
     'PrefixCompleter',
+    'FuzzyCompleter',
+    'ChainedCompleter'
 ]

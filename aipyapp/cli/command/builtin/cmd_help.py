@@ -28,7 +28,7 @@ class HelpCommand(ParserCommand):
         else:
             rows = []
             for name, command in commands.items():
-                kind = "user" if isinstance(command, MarkdownCommand) else "system"
+                kind = "system" if command.builtin else "user"
                 modes = ', '.join([mode.value for mode in command.modes])
                 rows.append([f"/{name}", kind, modes,command.description])
             table = row2table(rows, headers=[T('Command'), T('Type'), T('Modes'), T('Description')], title=T('Available commands'))

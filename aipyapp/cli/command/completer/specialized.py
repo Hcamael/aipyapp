@@ -231,15 +231,7 @@ class FuzzyCompleter(CompleterBase):
     def get_completions(self, context: CompleterContext) -> List[Completion]:
         """获取模糊匹配的补齐"""
         # 先获取所有可能的补齐
-        all_completions = self.completer.get_completions(
-            CompleterContext(
-                text="",
-                cursor_pos=0,
-                words=[],
-                current_word="",
-                word_before_cursor=""
-            )
-        )
+        all_completions = self.completer.get_completions(context)
         
         if not context.current_word:
             return all_completions

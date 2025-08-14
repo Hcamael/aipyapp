@@ -1,5 +1,5 @@
 ---
-name: generate_cmd
+name: usercmd
 description: 总结当前任务执行经验并生成可复用的用户命令
 modes: [task]
 arguments:
@@ -10,8 +10,7 @@ arguments:
     help: 任务名称，用于命令描述
   - name: --cmd-name
     type: str
-    required: false
-    default: "auto_task"
+    required: true
     help: 生成的命令名称
 ---
 
@@ -68,7 +67,6 @@ modes: [main]
 arguments:
   - name: --url
     type: str
-    required: true
     default: "https://www.google.com"
     help: 要获取标题的网站URL
 ---

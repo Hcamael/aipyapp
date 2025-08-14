@@ -443,7 +443,7 @@ class ContextManager(Trackable):
             'message_count': len(self._messages_cache),
             'total_tokens': self._cached_tokens,
             'max_tokens': self.config.max_tokens,
-            'compression_ratio': len(self._messages_cache) / max(len(self._messages_cache), 1),
+            'compression_ratio': len(self._messages_cache) / max(len(self.chat_history), 1),
             'last_compression': self._last_compression_time
         }
     

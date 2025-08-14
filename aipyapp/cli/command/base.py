@@ -17,6 +17,7 @@ class Command(ABC):
         self.name = name
         self.description = description
         self.modes = modes or [CommandMode.MAIN]
+        self.builtin = True
         self._completer: Optional[CompleterBase] = None
 
     def init(self):

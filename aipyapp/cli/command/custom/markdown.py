@@ -7,7 +7,7 @@ import io
 from contextlib import redirect_stdout, redirect_stderr
 
 from rich.markdown import Markdown
-from jinja2 import Environment, BaseLoader
+from jinja2 import Environment, BaseLoader, FileSystemLoader, ChoiceLoader, TemplateNotFound
 
 from ..base import ParserCommand
 from ..common import TaskModeResult, CommandMode, CommandContext
@@ -21,7 +21,7 @@ class CustomCommandConfig:
     arguments: List[Dict[str, Any]] = field(default_factory=list)
     subcommands: Dict[str, Dict[str, Any]] = field(default_factory=dict)
     template_vars: Dict[str, Any] = field(default_factory=dict)
-    task: bool|None = None  # 是否在MAIN模式下创建新任务
+    local: bool|None = None  # 是否在本地下执行，即不发送给LLM
 
 class CodeBlock(NamedTuple):
     """Represents a code block with its metadata"""
@@ -45,11 +45,14 @@ class ParsedContent(NamedTuple):
 class StringTemplateLoader(BaseLoader):
     """Simple template loader for string templates"""
     
-    def __init__(self, template_string: str):
+    def __init__(self, template_string: str, main_template_name: str = '_main_'):
         self.template_string = template_string
+        self.main_template_name = main_template_name
     
     def get_source(self, environment, template):
-        return self.template_string, None, lambda: True
+        if template == self.main_template_name:
+            return self.template_string, None, lambda: True
+        raise TemplateNotFound(template)
 
 
 class CodeExecutor:
@@ -160,10 +163,13 @@ class ContentParser:
 class MarkdownCommand(ParserCommand):
     """Custom command loaded from markdown file"""
     
-    def __init__(self, config: CustomCommandConfig, content: str, file_path: Path):
+    def __init__(self, config: CustomCommandConfig, content: str, file_path: Path, command_dir: Path):
         self.config = config
         self.content = content
+        self.builtin = False
         self.file_path = file_path
+        self.command_dir = command_dir
+        self.relative_path = file_path.relative_to(command_dir)
         
         # Set command properties from config
         self.name = config.name
@@ -171,12 +177,22 @@ class MarkdownCommand(ParserCommand):
         self.modes = config.modes
         super().__init__()
         
-        # Template environment
-        self.template_env = Environment(loader=StringTemplateLoader(content))
-        self.template = self.template_env.from_string(content)
+        # Template environment with include support
+        self.template_env = self._create_template_environment(content, command_dir)
+        self.template = self.template_env.get_template('_main_')
         
         # Unified content parser
         self.content_parser = ContentParser()
+    
+    def _create_template_environment(self, content: str, command_dir: Path) -> Environment:
+        """创建支持文件包含的模板环境"""
+        # 混合加载器：按优先级查找模板
+        loaders = [
+            StringTemplateLoader(content, '_main_'),  # 主模板
+            FileSystemLoader(str(self.file_path.parent)),  # 当前模板目录
+            FileSystemLoader(str(command_dir))  # 命令主目录（共享模板）
+        ]
+        return Environment(loader=ChoiceLoader(loaders))
     
     def add_arguments(self, parser):
         """Add arguments defined in the command configuration"""
@@ -189,11 +205,11 @@ class MarkdownCommand(ParserCommand):
                            if hasattr(action, 'option_strings')]
         existing_options_flat = [opt for opts in existing_options for opt in opts]
         
-        if '--test' not in existing_options_flat:
+        if '--local' not in existing_options_flat:
             parser.add_argument(
-                '--test', 
+                '--local', 
                 action='store_true',
-                help='测试模式：预览命令输出，不发送给LLM'
+                help='本地模式：预览命令输出，不发送给LLM'
             )
     
     def add_subcommands(self, subparsers):
@@ -266,21 +282,19 @@ class MarkdownCommand(ParserCommand):
         final_content = self._render_code_block(parsed_content, render_ctx)
         
         # 检查是否是测试模式
-        is_test_mode = getattr(args, 'test', False)
-        
-        if is_test_mode:
-            # 测试模式：始终显示输出，不发送给LLM
-            ctx.console.print("[yellow]🧪 测试模式 - 以下是命令输出预览：[/yellow]")
+        is_local_mode = getattr(args, 'local', False)
+        if is_local_mode:
+            # 本地模式：始终显示输出，不发送给LLM
+            ctx.console.print("[yellow]🧪 本地模式 - 以下是命令输出：[/yellow]")
             ctx.console.print(Markdown(final_content))
-            ctx.console.print("[yellow]💡 移除 --test 参数即可正常执行命令[/yellow]")
             return True
         
         # 判断是否发送给LLM
-        should_send_to_llm = self.config.task
-        if should_send_to_llm is None:
-            should_send_to_llm = True if ctx.task else False
+        is_local_mode = self.config.local
+        if is_local_mode is None:
+            is_local_mode = False if ctx.task else True
         
-        if should_send_to_llm:
+        if not is_local_mode:
             if ctx.task:
                 return ctx.task.run(final_content, title=self.description)
             else:

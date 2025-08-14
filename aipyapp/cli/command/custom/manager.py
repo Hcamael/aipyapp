@@ -12,7 +12,8 @@ from .markdown import CustomCommandConfig, MarkdownCommand
 class CustomCommandManager:
     """Manager for custom markdown-based commands"""
     
-    def __init__(self):
+    def __init__(self, builtin_dir: Path):
+        self.builtin_dir = builtin_dir
         self.command_dirs: set[Path] = set()
         self.commands: Dict[str, 'MarkdownCommand'] = {}
         self.log = logger.bind(src="CustomCommandManager")
@@ -22,50 +23,80 @@ class CustomCommandManager:
         self.command_dirs.add(Path(command_dir))
         self.log.info(f"Added custom command directory: {command_dir}")
     
+    def _scan_command_dir(self, command_dir: Path, builtin: bool = False) -> List['MarkdownCommand']:
+        """Scan a custom command directory for markdown commands"""
+        commands = []
+        for md_file in command_dir.rglob("*.md"):
+            try:
+                # Calculate relative path to determine command name
+                rel_path = md_file.relative_to(command_dir)
+                command = self._load_command_from_file(md_file, command_dir)
+                if command:
+                    command.builtin = builtin
+                    commands.append(command)
+                    self.commands[command.name] = command
+                    self.log.info(f"Loaded custom command: {command.name} from {rel_path}")
+            except Exception as e:
+                self.log.error(f"Failed to load command from {md_file}: {e}")
+        return commands
+
     def scan_commands(self) -> List['MarkdownCommand']:
         """Scan the command directories for markdown commands"""
-        commands = []
+        commands = self._scan_command_dir(self.builtin_dir, builtin=True)
+        if commands:
+            self.log.info(f"Loaded {len(commands)} builtin markdown commands")
         
         for command_dir in self.command_dirs:
             if not command_dir.exists():
-                # Create default directory if it doesn't exist
-                if command_dir.name == "custom_commands":
-                    self._ensure_default_command_dir(command_dir)
-                else:
-                    self.log.warning(f"Command directory does not exist: {command_dir}")
-                    continue
-        
-            # Scan for .md files
-            for md_file in command_dir.rglob("*.md"):
-                try:
-                    command = self._load_command_from_file(md_file)
-                    if command:
-                        commands.append(command)
-                        self.commands[command.name] = command
-                        self.log.info(f"Loaded custom command: {command.name} from {md_file.relative_to(command_dir)}")
-                except Exception as e:
-                    self.log.error(f"Failed to load command from {md_file}: {e}")
-        
+                self.log.warning(f"Command directory does not exist: {command_dir}")
+                continue
+            user_commands = self._scan_command_dir(command_dir, builtin=False)
+            if user_commands:
+                self.log.info(f"Loaded {len(user_commands)} custom markdown commands from {command_dir}")
+            commands.extend(user_commands)
+
         if commands:
-            self.log.info(f"Loaded {len(commands)} custom commands")
+            self.log.info(f"Loaded {len(commands)} markdown commands in total")
         return commands
     
-    def _load_command_from_file(self, md_file: Path) -> Optional['MarkdownCommand']:
+    def _load_command_from_file(self, md_file: Path, command_dir: Path) -> Optional['MarkdownCommand']:
         """Load a command from a markdown file"""
         try:
             content = md_file.read_text(encoding='utf-8')
             frontmatter, body = self._parse_frontmatter(content)
             
+            # Calculate command name based on directory structure
+            rel_path = md_file.relative_to(command_dir)
+            # Convert path to command name: test/debug.md -> test/debug
+            base_command_name = str(rel_path.with_suffix('')).replace('\\', '/')
+            
+            # Determine final command name
+            if frontmatter and 'name' in frontmatter:
+                # Replace the last component (filename) with the custom name
+                path_parts = base_command_name.split('/')
+                if len(path_parts) > 1:
+                    # Has directory: test/custom_name.md + name: special -> test/special
+                    path_parts[-1] = frontmatter['name']
+                    final_command_name = '/'.join(path_parts)
+                else:
+                    # Root level: custom_name.md + name: special -> special
+                    final_command_name = frontmatter['name']
+            else:
+                # No custom name, use directory-based name
+                final_command_name = base_command_name
+            
+            #final_command_name = 'usercmd/' + final_command_name
             if frontmatter:
                 # File has frontmatter, parse configuration from it
-                config = self._parse_command_config(frontmatter, md_file.stem)
+                config = self._parse_command_config(frontmatter, final_command_name)
+                config.name = final_command_name
             else:
                 # No frontmatter, use default configuration
                 self.log.info(f"No frontmatter found in {md_file}, using default configuration")
-                config = self._create_default_config(md_file.stem, content)
+                config = self._create_default_config(final_command_name, content)
                 body = content  # Use entire content as body
             
-            return MarkdownCommand(config, body, md_file)
+            return MarkdownCommand(config, body, md_file, command_dir)
         except Exception as e:
             self.log.error(f"Error loading command from {md_file}: {e}")
             return None
@@ -91,16 +122,16 @@ class CustomCommandManager:
     
     def _create_default_config(self, default_name: str, content: str = "") -> CustomCommandConfig:
         """Create default configuration for pure markdown files"""
-        mode = CommandMode.TASK
+        mode = [CommandMode.TASK, CommandMode.MAIN]
         
         return CustomCommandConfig(
             name=default_name,
             description=f"Custom command: {default_name}",
-            modes=[mode],
+            modes=mode,
             arguments=[],
             subcommands={},
             template_vars={},
-            task=True
+            local=False
         )
     
     def _parse_command_config(self, frontmatter: Dict[str, Any], default_name: str) -> CustomCommandConfig:
@@ -111,7 +142,7 @@ class CustomCommandManager:
             arguments=frontmatter.get('arguments', []),
             subcommands=frontmatter.get('subcommands', {}),
             template_vars=frontmatter.get('template_vars', {}),
-            task=frontmatter.get('task')
+            local=frontmatter.get('local')
         )
         
         # Parse modes

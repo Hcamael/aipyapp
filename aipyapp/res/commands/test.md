@@ -2,7 +2,7 @@
 name: test_example
 description: 测试功能示例命令
 modes: [main]
-task: true
+local: false
 arguments:
   - name: --count
     type: int

@@ -4,6 +4,7 @@
 from .utils import record2table
 from ..base import CommandMode, ParserCommand
 from aipyapp import T
+from rich.tree import Tree
 
 class StepsCommand(ParserCommand):
     """Steps command"""
@@ -18,7 +19,7 @@ class StepsCommand(ParserCommand):
         parser.add_argument('index', type=int, help=T('Index of the task step to delete'))
         
     def get_arg_values(self, name, subcommand=None):
-        if subcommand == 'delete' and name == 'index':
+        if name == 'index':
             ctx = self.manager.context
             return [(str(step.Index), step.Instruction[:32]) for step in ctx.task.list_steps()]
         return None
@@ -29,8 +30,32 @@ class StepsCommand(ParserCommand):
     def cmd_list(self, args, ctx):
         task = ctx.task
         steps = task.list_steps()
-        table = record2table(steps, title=T("Task Steps"))
-        ctx.console.print(table)
+        
+        if not steps:
+            ctx.console.print(T("No task steps found"))
+            return
+        
+        # 创建根树节点
+        tree = Tree(f"[bold blue]{T('Task Steps')}[/bold blue]")
+        
+        for i, step in enumerate(steps, 1):
+            # 获取字段值
+            fields = step._fields if hasattr(step, '_fields') else step.keys()
+            
+            # 为每个步骤创建子节点
+            step_node = tree.add(f"[bold cyan]Step {i}[/bold cyan]")
+            
+            for field in fields:
+                value = getattr(step, field) if hasattr(step, field) else step[field]
+                
+                if field == 'Instruction':
+                    # 长文本字段作为单个节点，保持原有格式
+                    step_node.add(f"[yellow]{T(field)}:[/yellow]\n[dim]{value}[/dim]")
+                else:
+                    # 短字段直接添加到步骤节点
+                    step_node.add(f"[yellow]{T(field)}:[/yellow] [green]{value}[/green]")
+        
+        ctx.console.print(tree)
     
     def cmd_clear(self, args, ctx):
         task = ctx.task
